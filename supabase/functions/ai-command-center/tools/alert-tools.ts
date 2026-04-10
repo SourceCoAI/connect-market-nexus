@@ -465,6 +465,76 @@ async function getProactiveAlerts(
     }
   }
 
+  // Channel saturation detection (3+ channels in 7 days)
+  if (shouldFetch('channel_saturation')) {
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
+      const [callsRes, slRes, hrRes] = await Promise.all([
+        (supabase as any)
+          .from('contact_activities')
+          .select('contact_email')
+          .gte('created_at', sevenDaysAgo)
+          .not('contact_email', 'is', null)
+          .eq('activity_type', 'call_completed')
+          .limit(500),
+        (supabase as any)
+          .from('smartlead_webhook_events')
+          .select('lead_email')
+          .gte('created_at', sevenDaysAgo)
+          .eq('event_type', 'EMAIL_SENT')
+          .limit(500),
+        (supabase as any)
+          .from('heyreach_webhook_events')
+          .select('lead_email')
+          .gte('created_at', sevenDaysAgo)
+          .in('event_type', ['CONNECTION_REQUEST_SENT', 'MESSAGE_SENT', 'INMAIL_SENT'])
+          .limit(500),
+      ]);
+
+      const channelMap = new Map<string, Set<string>>();
+      for (const c of callsRes.data || []) {
+        if (!c.contact_email) continue;
+        const email = c.contact_email.toLowerCase();
+        if (!channelMap.has(email)) channelMap.set(email, new Set());
+        channelMap.get(email)!.add('call');
+      }
+      for (const e of slRes.data || []) {
+        if (!e.lead_email) continue;
+        const email = e.lead_email.toLowerCase();
+        if (!channelMap.has(email)) channelMap.set(email, new Set());
+        channelMap.get(email)!.add('email');
+      }
+      for (const h of hrRes.data || []) {
+        if (!h.lead_email) continue;
+        const email = h.lead_email.toLowerCase();
+        if (!channelMap.has(email)) channelMap.set(email, new Set());
+        channelMap.get(email)!.add('linkedin');
+      }
+
+      for (const [email, channels] of channelMap) {
+        if (channels.size >= 3) {
+          const key = `channel_saturation:${email}`;
+          if (isFilteredOut(key)) continue;
+          alerts.push({
+            key,
+            type: 'channel_saturation',
+            severity: 'warning',
+            title: `Multi-channel saturation: ${email}`,
+            description: `This contact was reached via ${[...channels].join(', ')} in the past 7 days. Consider consolidating to one channel.`,
+            entity_type: 'contact',
+            entity_id: email,
+            entity_name: email,
+            suggested_action: 'Review outreach cadence and consolidate to primary channel',
+            data: { channels: [...channels], email },
+          });
+        }
+      }
+    } catch (e) {
+      console.error('[alert-tools] Channel saturation check failed:', e);
+    }
+  }
+
   // Apply severity filter
   let filteredAlerts = alerts;
   if (severityFilter !== 'all') {

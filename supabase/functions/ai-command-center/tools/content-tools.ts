@@ -480,6 +480,24 @@ async function generateEodRecap(
       }
       return q;
     })(),
+
+    // Email activity
+    (supabase as any)
+      .from('email_messages')
+      .select('id, direction, subject, from_address, to_addresses, sent_at, deal_id, contact_id')
+      .gte('sent_at', startStr)
+      .lt('sent_at', endStr)
+      .order('sent_at', { ascending: false })
+      .limit(100),
+
+    // Meeting transcripts linked
+    (supabase as any)
+      .from('deal_transcripts')
+      .select('id, title, listing_id, source, duration_minutes, call_date, has_content')
+      .gte('created_at', startStr)
+      .lt('created_at', endStr)
+      .order('created_at', { ascending: false })
+      .limit(50),
   ];
 
   const [
@@ -489,6 +507,8 @@ async function generateEodRecap(
     outreachResult,
     accessResult,
     callsResult,
+    emailsResult,
+    meetingsResult,
   ] = (await Promise.all(queries)) as Array<{
     data: unknown[] | null;
     error: { message: string } | null;
@@ -500,6 +520,8 @@ async function generateEodRecap(
   const outreachUpdates = outreachResult.data || [];
   const accessGrants = accessResult.data || [];
   const calls = callsResult.data || [];
+  const emailData = (emailsResult.data || []) as Array<{ id: string; direction: string; subject: string; sent_at: string }>;
+  const meetingsData = (meetingsResult.data || []) as Array<{ id: string; title: string; source: string; duration_minutes: number; call_date: string }>;
 
   // Activity breakdown
   const actByType: Record<string, number> = {};
@@ -591,6 +613,25 @@ async function generateEodRecap(
         total: totalCalls,
         connected: connectedCalls,
         total_talk_time_seconds: totalTalkTime,
+      },
+      emails: {
+        total: emailData.length,
+        sent: emailData.filter(e => e.direction === 'outbound').length,
+        received: emailData.filter(e => e.direction === 'inbound').length,
+        subjects: emailData.slice(0, 10).map(e => ({
+          subject: e.subject,
+          direction: e.direction,
+          sent_at: e.sent_at,
+        })),
+      },
+      meetings: {
+        total: meetingsData.length,
+        titles: meetingsData.slice(0, 10).map(m => ({
+          title: m.title,
+          source: m.source,
+          duration_minutes: m.duration_minutes,
+          date: m.call_date,
+        })),
       },
       data_room_grants: accessGrants.length,
       priorities: {

@@ -21,6 +21,7 @@ import {
   Calculator,
   Send,
   Search,
+  Phone,
 } from 'lucide-react';
 import { CreateTaskButton, EntityTasksTab, DealSignalsPanel } from '@/components/daily-tasks';
 import { NotAFitReasonDialog } from '@/components/remarketing';
@@ -39,6 +40,7 @@ import { BuyerIntroductionPage } from '@/components/admin/deals/buyer-introducti
 import { ValuationTab } from './ValuationTab';
 import { DealEmailActivity } from '@/components/email';
 import { UnifiedDealTimeline } from '@/components/remarketing/deal-detail/UnifiedDealTimeline';
+import { LogManualCallDialog } from '@/components/remarketing/deal-detail/LogManualCallDialog';
 import { DealSearchDialog } from '@/components/remarketing/deal-detail/DealSearchDialog';
 import { ClientPreviewDialog } from '@/components/remarketing/deal-detail/ClientPreviewDialog';
 
@@ -84,6 +86,7 @@ const ReMarketingDealDetail = () => {
   const [notAFitDialogOpen, setNotAFitDialogOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [clientPreviewOpen, setClientPreviewOpen] = useState(false);
+  const [logCallOpen, setLogCallOpen] = useState(false);
 
   if (dealLoading) {
     return (
@@ -275,7 +278,21 @@ const ReMarketingDealDetail = () => {
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-6">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setLogCallOpen(true)}>
+              <Phone className="h-3.5 w-3.5 mr-1.5" />
+              Log Call
+            </Button>
+          </div>
           <UnifiedDealTimeline dealId={dealId!} listingId={dealId!} />
+          <LogManualCallDialog
+            open={logCallOpen}
+            onOpenChange={setLogCallOpen}
+            dealId={dealId}
+            listingId={dealId}
+            defaultContactName={deal?.main_contact_name || ''}
+            defaultContactEmail={deal?.main_contact_email || ''}
+          />
         </TabsContent>
 
         {isValuationDeal && (

@@ -217,6 +217,42 @@ Deno.serve(async (req) => {
       ip_address: req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || null,
     });
 
+    // Log to deal_activities for deal timeline visibility
+    let resolvedDealId = body.dealId || null;
+    if (!resolvedDealId && body.contactId) {
+      try {
+        const { data: ct } = await supabase.from('contacts').select('listing_id').eq('id', body.contactId).single();
+        if (ct?.listing_id) {
+          const { data: dp } = await supabase.from('deal_pipeline').select('id').eq('listing_id', ct.listing_id).is('deleted_at', null).limit(1).maybeSingle();
+          resolvedDealId = dp?.id || null;
+        }
+      } catch (_) { /* ignore resolution failure */ }
+    }
+
+    if (resolvedDealId) {
+      try {
+        await supabase.rpc('log_deal_activity', {
+          p_deal_id: resolvedDealId,
+          p_activity_type: 'email_sent',
+          p_title: `Email sent to ${body.to.join(', ')}`,
+          p_description: body.subject,
+          p_admin_id: auth.userId,
+          p_metadata: {
+            email_message_id: emailRecord?.id || null,
+            direction: 'outbound',
+            from_address: connection.email_address,
+            to_addresses: body.to,
+            subject: body.subject,
+            has_attachments: (body.attachments || []).length > 0,
+            contact_id: body.contactId,
+            is_reply: !!body.replyToMessageId,
+          },
+        });
+      } catch (e) {
+        console.error('[outlook-send] Failed to log deal activity:', e);
+      }
+    }
+
     return successResponse(
       {
         sent: true,

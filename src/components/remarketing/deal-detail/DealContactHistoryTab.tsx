@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Users, Mail, Phone, Activity, User } from 'lucide-react';
+import { Users, Mail, Phone, Activity, User, ExternalLink } from 'lucide-react';
 import {
   ContactActivityTimeline,
   ContactActivityTimelineByEmail,
@@ -190,6 +191,7 @@ export function DealContactHistoryTab({
     sublabel?: string;
     email?: string | null;
     buyerId?: string | null;
+    remarketing_buyer_id?: string | null;
     type: 'primary' | 'buyer' | 'seller';
   }> = [];
 
@@ -210,6 +212,7 @@ export function DealContactHistoryTab({
       sublabel: b.contactEmail || b.buyerType?.replace(/_/g, ' ') || undefined,
       email: b.contactEmail,
       buyerId: b.remarketing_buyer_id,
+      remarketing_buyer_id: b.remarketing_buyer_id,
       type: 'buyer',
     });
   }
@@ -293,6 +296,15 @@ export function DealContactHistoryTab({
                       )}
                     </div>
                   </div>
+                  {tab.type === 'buyer' && tab.remarketing_buyer_id && (
+                    <Link
+                      to={`/admin/remarketing/buyers/${tab.remarketing_buyer_id}`}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      View full buyer history
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  )}
                 </div>
 
                 {/* Timeline */}

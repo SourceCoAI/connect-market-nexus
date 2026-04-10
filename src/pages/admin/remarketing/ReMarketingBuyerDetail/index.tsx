@@ -48,6 +48,9 @@ import { useExtractionHandlers } from './useExtractionHandlers';
 import { ContactsTab } from './ContactsTab';
 import { DealHistoryTab } from './DealHistoryTab';
 import { AddContactDialog } from './AddContactDialog';
+import { BuyerEngagementSummary } from '@/components/remarketing/buyer-detail/BuyerEngagementSummary';
+import { BuyerActiveDealsSummary } from '@/components/remarketing/buyer-detail/BuyerActiveDealsSummary';
+import { useContactCombinedHistory } from '@/hooks/use-contact-combined-history';
 import { EditDialogs } from './EditDialogs';
 import { CallActivityTab } from './CallActivityTab';
 import { EmailHistoryTab } from '@/components/email';
@@ -111,6 +114,7 @@ const ReMarketingBuyerDetail = () => {
   } = useExtractionHandlers(transcripts, extractTranscriptMutation);
 
   const { data: transcriptCriteria } = useBuyerCriteriaFromTranscripts(buyer?.id);
+  const { data: combinedHistory = [] } = useContactCombinedHistory(buyer?.id || null);
 
   if (!isNew && isLoading) {
     return (
@@ -226,6 +230,14 @@ const ReMarketingBuyerDetail = () => {
         parentPeFirmId={buyer?.parent_pe_firm_id || null}
         parentPeFirmName={buyer?.parent_pe_firm_name || null}
       />
+
+      {/* Multi-Deal Summary */}
+      {buyer?.id && <BuyerActiveDealsSummary buyerId={buyer.id} />}
+
+      {/* Engagement Summary */}
+      {combinedHistory.length > 0 && (
+        <BuyerEngagementSummary entries={combinedHistory} />
+      )}
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="intelligence" className="space-y-4">

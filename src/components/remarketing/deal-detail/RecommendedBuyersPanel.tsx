@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
 import { useSeedBuyers, type SeedBuyerResult } from '@/hooks/admin/use-seed-buyers';
 import { useBuyerIntroductions } from '@/hooks/use-buyer-introductions';
+import { formatDistanceToNow } from 'date-fns';
 import {
   RefreshCw,
   Users,
@@ -112,11 +115,13 @@ function BuyerCard({
   onAccept,
   onReject,
   isAccepting,
+  lastContact,
 }: {
   buyer: BuyerScore;
   onAccept: (buyer: BuyerScore) => void;
   onReject: (buyer: BuyerScore) => void;
   isAccepting?: boolean;
+  lastContact?: { last_contacted_at: string | null; last_contact_channel: string | null } | null;
 }) {
   const tier = TIER_CONFIG[buyer.tier];
   const TierIcon = tier.icon;
@@ -181,6 +186,14 @@ function BuyerCard({
                 <ExternalLink className="h-3 w-3" />
                 Website
               </a>
+            )}
+            {lastContact?.last_contacted_at ? (
+              <span className="text-muted-foreground ml-1">
+                Last: {formatDistanceToNow(new Date(lastContact.last_contacted_at), { addSuffix: true })}
+                {lastContact.last_contact_channel ? ` via ${lastContact.last_contact_channel}` : ''}
+              </span>
+            ) : (
+              <span className="text-orange-500 ml-1">Never contacted</span>
             )}
           </div>
         </div>
@@ -314,6 +327,26 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
   const { data, isLoading, isError, error, refresh } = useNewRecommendedBuyers(listingId);
   const seedMutation = useSeedBuyers();
   const { introductions, createIntroduction } = useBuyerIntroductions(listingId);
+
+  // Batch fetch last_contacted_at for all recommended buyers
+  const buyerIds = useMemo(() => (data?.buyers || []).map(b => b.buyer_id), [data?.buyers]);
+  const { data: buyerContactMap = {} } = useQuery({
+    queryKey: ['buyer-last-contacts', buyerIds],
+    queryFn: async () => {
+      if (buyerIds.length === 0) return {};
+      const { data: buyers } = await (supabase as any)
+        .from('remarketing_buyers')
+        .select('id, last_contacted_at, last_contact_channel')
+        .in('id', buyerIds);
+      const map: Record<string, { last_contacted_at: string | null; last_contact_channel: string | null }> = {};
+      for (const b of buyers || []) {
+        map[b.id] = { last_contacted_at: b.last_contacted_at, last_contact_channel: b.last_contact_channel };
+      }
+      return map;
+    },
+    enabled: buyerIds.length > 0,
+    staleTime: 60_000,
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [seedResults, setSeedResults] = useState<SeedBuyerResult[] | null>(null);
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
@@ -581,6 +614,7 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
                       onAccept={handleAccept}
                       onReject={handleReject}
                       isAccepting={acceptingIds.has(buyer.buyer_id)}
+                      lastContact={buyerContactMap[buyer.buyer_id]}
                     />
                   ))}
                   {allInternal.length > internalVisible && (
@@ -614,6 +648,7 @@ export function RecommendedBuyersPanel({ listingId, listingTitle }: RecommendedB
                       onAccept={handleAccept}
                       onReject={handleReject}
                       isAccepting={acceptingIds.has(buyer.buyer_id)}
+                      lastContact={buyerContactMap[buyer.buyer_id]}
                     />
                   ))}
                   {allExternal.length > externalVisible && (

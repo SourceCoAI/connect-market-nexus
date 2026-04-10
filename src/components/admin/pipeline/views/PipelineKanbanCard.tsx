@@ -76,6 +76,16 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
     daysInStageCount < STUCK_CRIT_DAYS;
   const isStuckCritical = daysInStageCount != null && daysInStageCount >= STUCK_CRIT_DAYS;
 
+  const daysSinceActivity = (() => {
+    const lastAt = deal.last_activity_at;
+    if (!lastAt) return null;
+    return Math.floor((Date.now() - new Date(lastAt).getTime()) / 86400000);
+  })();
+  const activityColor = daysSinceActivity === null ? '#9A9A9A'
+    : daysSinceActivity <= 7 ? '#16A34A'
+    : daysSinceActivity <= 14 ? '#B45309'
+    : '#DC2626';
+
   const ownerDisplayName = (() => {
     const name = assignedAdmin?.displayName;
     if (!name || name === 'Unassigned') return 'Unassigned';
@@ -318,6 +328,15 @@ export function PipelineKanbanCard({ deal, onDealClick, isDragging }: PipelineKa
               </span>
             )}
             <DealSourceBadge source={deal.deal_source} />
+            {daysSinceActivity !== null && (
+              <span
+                className="text-[9px] tabular-nums font-semibold rounded px-1"
+                style={{ color: activityColor, backgroundColor: daysSinceActivity > 14 ? '#FEF2F2' : 'transparent' }}
+                title={`${daysSinceActivity}d since last activity`}
+              >
+                {daysSinceActivity}d act
+              </span>
+            )}
             <span
               className="text-[11px] tabular-nums font-semibold"
               style={{ color: isStuckCritical ? '#DC2626' : isStuckWarn ? '#B45309' : '#9A9A9A' }}

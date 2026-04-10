@@ -313,6 +313,52 @@ export function useContactCombinedHistory(buyerId: string | null) {
         }
       }
 
+      // ── 4. Outlook Emails ──
+      const { data: buyerContacts } = await supabase
+        .from('contacts').select('id')
+        .eq('remarketing_buyer_id', buyerId).eq('archived', false);
+      const emailContactIds = (buyerContacts || []).map((c: { id: string }) => c.id);
+
+      if (emailContactIds.length > 0) {
+        const { data: outlookEmails } = await (supabase as any)
+          .from('email_messages')
+          .select('id, direction, from_address, to_addresses, subject, sent_at, has_attachments')
+          .in('contact_id', emailContactIds)
+          .order('sent_at', { ascending: false }).limit(100);
+
+        for (const e of outlookEmails || []) {
+          entries.push({
+            id: `outlook-${e.id}`, timestamp: e.sent_at,
+            channel: 'email' as const,
+            event_type: e.direction === 'outbound' ? 'EMAIL_SENT' : 'EMAIL_RECEIVED',
+            label: e.direction === 'outbound' ? 'Email Sent (Outlook)' : 'Email Received (Outlook)',
+            context: e.subject || null,
+            details: { lead_email: e.from_address },
+          });
+        }
+      }
+
+      // ── 5. Fireflies Meetings ──
+      const { data: buyerMeetings } = await (supabase as any)
+        .from('buyer_transcripts')
+        .select('id, title, call_date, duration_minutes, summary, fireflies_transcript_id')
+        .eq('buyer_id', buyerId)
+        .order('call_date', { ascending: false }).limit(50);
+
+      for (const t of buyerMeetings || []) {
+        entries.push({
+          id: `meeting-${t.id}`, timestamp: t.call_date || new Date().toISOString(),
+          channel: 'call' as const,
+          event_type: 'meeting_recorded',
+          label: 'Meeting Recorded (Fireflies)',
+          context: t.title || 'Meeting',
+          details: {
+            call_duration_seconds: t.duration_minutes ? t.duration_minutes * 60 : null,
+            call_outcome: t.summary || null,
+          },
+        });
+      }
+
       // Sort by timestamp descending (newest first)
       entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
@@ -486,6 +532,55 @@ export function useContactCombinedHistoryByEmail(email: string | null) {
             lead_email: e.lead_email,
           },
         });
+      }
+
+      // ── 4. Outlook Emails by email address ──
+      const { data: emailContacts } = await supabase
+        .from('contacts').select('id, remarketing_buyer_id')
+        .eq('email', email).eq('archived', false);
+      const outlookContactIds = (emailContacts || []).map((c: any) => c.id);
+
+      if (outlookContactIds.length > 0) {
+        const { data: outlookEmails } = await (supabase as any)
+          .from('email_messages')
+          .select('id, direction, from_address, to_addresses, subject, sent_at, has_attachments')
+          .in('contact_id', outlookContactIds)
+          .order('sent_at', { ascending: false }).limit(100);
+
+        for (const e of outlookEmails || []) {
+          entries.push({
+            id: `outlook-${e.id}`, timestamp: e.sent_at,
+            channel: 'email' as const,
+            event_type: e.direction === 'outbound' ? 'EMAIL_SENT' : 'EMAIL_RECEIVED',
+            label: e.direction === 'outbound' ? 'Email Sent (Outlook)' : 'Email Received (Outlook)',
+            context: e.subject || null,
+            details: { lead_email: e.from_address },
+          });
+        }
+      }
+
+      // ── 5. Fireflies Meetings (via contact → buyer resolution) ──
+      const buyerIdsFromContacts = [...new Set((emailContacts || []).map((c: any) => c.remarketing_buyer_id).filter(Boolean))] as string[];
+      if (buyerIdsFromContacts.length > 0) {
+        const { data: emailBuyerMeetings } = await (supabase as any)
+          .from('buyer_transcripts')
+          .select('id, title, call_date, duration_minutes, summary, fireflies_transcript_id')
+          .in('buyer_id', buyerIdsFromContacts)
+          .order('call_date', { ascending: false }).limit(50);
+
+        for (const t of emailBuyerMeetings || []) {
+          entries.push({
+            id: `meeting-${t.id}`, timestamp: t.call_date || new Date().toISOString(),
+            channel: 'call' as const,
+            event_type: 'meeting_recorded',
+            label: 'Meeting Recorded (Fireflies)',
+            context: t.title || 'Meeting',
+            details: {
+              call_duration_seconds: t.duration_minutes ? t.duration_minutes * 60 : null,
+              call_outcome: t.summary || null,
+            },
+          });
+        }
       }
 
       // Sort newest first

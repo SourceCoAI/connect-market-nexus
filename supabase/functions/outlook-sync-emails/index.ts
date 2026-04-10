@@ -32,6 +32,7 @@ interface ContactMatch {
   id: string;
   email: string;
   deal_id?: string | null;
+  listing_id?: string | null;
 }
 
 import { decryptToken, encryptToken, refreshAccessToken } from '../_shared/microsoft-tokens.ts';
@@ -112,17 +113,42 @@ async function loadKnownContactEmails(
 ): Promise<Map<string, ContactMatch>> {
   const emailMap = new Map<string, ContactMatch>();
 
-  // Load from unified contacts table
+  // Load from unified contacts table (include listing_id for deal resolution)
   const { data: contacts } = await supabase
     .from('contacts')
-    .select('id, email')
+    .select('id, email, listing_id')
     .not('email', 'is', null)
     .eq('archived', false);
 
   if (contacts) {
     for (const c of contacts) {
       if (c.email) {
-        emailMap.set(c.email.toLowerCase(), { id: c.id, email: c.email });
+        emailMap.set(c.email.toLowerCase(), {
+          id: c.id, email: c.email, listing_id: c.listing_id || null, deal_id: null,
+        });
+      }
+    }
+  }
+
+  // Batch-resolve listing_id → deal_pipeline.id for remarketing deals
+  const listingIds = [...new Set([...emailMap.values()].map(c => c.listing_id).filter(Boolean))] as string[];
+  if (listingIds.length > 0) {
+    const chunkSize = 500;
+    for (let i = 0; i < listingIds.length; i += chunkSize) {
+      const chunk = listingIds.slice(i, i + chunkSize);
+      const { data: pipelineDeals } = await supabase
+        .from('deal_pipeline')
+        .select('id, listing_id')
+        .in('listing_id', chunk)
+        .is('deleted_at', null);
+      const listingDealMap = new Map<string, string>();
+      for (const d of pipelineDeals || []) {
+        if (d.listing_id) listingDealMap.set(d.listing_id, d.id);
+      }
+      for (const [, match] of emailMap) {
+        if (match.listing_id && !match.deal_id) {
+          match.deal_id = listingDealMap.get(match.listing_id) || null;
+        }
       }
     }
   }
@@ -509,6 +535,33 @@ async function syncEmails(
               }
             } else {
               synced++;
+
+              // Log to deal_activities for deal timeline visibility
+              if (contact.deal_id) {
+                try {
+                  const fromName = msg.from?.emailAddress?.name || msg.from?.emailAddress?.address || 'Unknown';
+                  const toNames = (msg.toRecipients || []).map((r: any) => r.emailAddress?.name || r.emailAddress?.address).join(', ');
+                  await supabase.rpc('log_deal_activity', {
+                    p_deal_id: contact.deal_id,
+                    p_activity_type: match.direction === 'outbound' ? 'email_sent' : 'email_received',
+                    p_title: match.direction === 'outbound' ? `Email sent to ${toNames}` : `Email from ${fromName}`,
+                    p_description: msg.subject || '(No subject)',
+                    p_admin_id: null,
+                    p_metadata: {
+                      email_message_id: msg.id,
+                      direction: match.direction,
+                      from_address: msg.from?.emailAddress?.address || null,
+                      to_addresses: (msg.toRecipients || []).map((r: any) => r.emailAddress?.address),
+                      subject: msg.subject,
+                      has_attachments: msg.hasAttachments || false,
+                      contact_id: contact.id,
+                      body_preview: msg.bodyPreview?.substring(0, 300) || null,
+                    },
+                  });
+                } catch (e) {
+                  console.error('[outlook-sync] Failed to log deal activity:', e);
+                }
+              }
             }
           }
         } catch (err) {

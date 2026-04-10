@@ -22,6 +22,8 @@ import {
   FileCheck,
   UserCog,
   Star,
+  Mic,
+  FileText,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useDealActivities } from '@/hooks/admin/use-deal-activities';
@@ -278,34 +280,58 @@ export function UnifiedDealTimeline({ dealId, listingId }: UnifiedDealTimelinePr
     staleTime: 60_000,
   });
 
-  // 3. Email history linked to the listing
+  // 3. Outlook email history (via contacts linked to this listing)
   const { data: emailHistory = [], isLoading: loadingEmails } = useQuery({
-    queryKey: ['unified-timeline-emails', listingId],
+    queryKey: ['unified-timeline-outlook-emails', listingId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('contact_email_history')
-        .select('*')
+      const { data: contacts } = await supabase
+        .from('contacts')
+        .select('id')
         .eq('listing_id', listingId)
+        .eq('archived', false);
+      const contactIds = (contacts || []).map((c: { id: string }) => c.id);
+      if (contactIds.length === 0) return [];
+
+      const { data, error } = await (supabase as any)
+        .from('email_messages')
+        .select('id, contact_id, direction, from_address, to_addresses, subject, body_text, sent_at, sourceco_user_id, has_attachments')
+        .in('contact_id', contactIds)
         .order('sent_at', { ascending: false })
         .limit(100);
-      if (error) throw error;
+      if (error) { console.error('Outlook timeline query failed:', error); return []; }
       return data ?? [];
     },
     enabled: !!listingId,
     staleTime: 60_000,
   });
 
-  // 4. LinkedIn history linked to the listing
+  // 4. LinkedIn outreach (via HeyReach for buyers on this listing)
   const { data: linkedinHistory = [], isLoading: loadingLinkedin } = useQuery({
-    queryKey: ['unified-timeline-linkedin', listingId],
+    queryKey: ['unified-timeline-heyreach', listingId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('contact_linkedin_history')
-        .select('*')
+      const { data: deals } = await (supabase as any)
+        .from('deal_pipeline')
+        .select('remarketing_buyer_id')
         .eq('listing_id', listingId)
-        .order('activity_timestamp', { ascending: false })
+        .not('remarketing_buyer_id', 'is', null)
+        .is('deleted_at', null);
+      const buyerIds = [...new Set((deals || []).map((d: any) => d.remarketing_buyer_id).filter(Boolean))] as string[];
+      if (buyerIds.length === 0) return [];
+
+      const { data: leads } = await (supabase as any)
+        .from('heyreach_campaign_leads')
+        .select('linkedin_url')
+        .in('remarketing_buyer_id', buyerIds);
+      const urls = [...new Set((leads || []).map((l: any) => l.linkedin_url).filter(Boolean))] as string[];
+      if (urls.length === 0) return [];
+
+      const { data, error } = await (supabase as any)
+        .from('heyreach_webhook_events')
+        .select('id, event_type, lead_linkedin_url, lead_email, heyreach_campaign_id, created_at')
+        .in('lead_linkedin_url', urls)
+        .order('created_at', { ascending: false })
         .limit(100);
-      if (error) throw error;
+      if (error) { console.error('HeyReach timeline query failed:', error); return []; }
       return data ?? [];
     },
     enabled: !!listingId,
@@ -397,47 +423,58 @@ export function UnifiedDealTimeline({ dealId, listingId }: UnifiedDealTimelinePr
       });
     }
 
-    // Email history
+    // Email history (Outlook)
     for (const e of emailHistory) {
-      const hasReply = !!e.replied_at;
       entries.push({
         id: `email-${e.id}`,
         timestamp: e.sent_at,
         source: 'email',
         category: 'emails',
         icon: <Mail className="h-3.5 w-3.5" />,
-        iconColor: 'bg-green-50 text-green-700 border-green-200',
-        title: e.subject || 'Email sent',
-        description: hasReply
-          ? `Reply received (${e.reply_sentiment ?? 'unknown'} sentiment)`
-          : e.opened_count && e.opened_count > 0
-            ? `Opened ${e.opened_count} time${e.opened_count > 1 ? 's' : ''}`
-            : 'Sent',
+        iconColor: e.direction === 'inbound'
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : 'bg-green-50 text-green-700 border-green-200',
+        title: e.subject || '(No subject)',
+        description: e.direction === 'outbound'
+          ? `Sent to ${(e.to_addresses || []).join(', ')}`
+          : `Received from ${e.from_address}`,
         metadata: {
-          recipient: e.recipient_email,
-          sent_by: e.sent_by,
-          opened: e.opened_count,
-          replied: hasReply,
+          direction: e.direction,
+          from: e.from_address,
+          to: e.to_addresses,
+          has_attachments: e.has_attachments,
+          body_preview: e.body_text?.substring(0, 300),
         },
-        adminName: e.sent_by || null,
+        adminName: null,
       });
     }
 
-    // LinkedIn history
+    // LinkedIn history (HeyReach)
+    const LI_LABELS: Record<string, string> = {
+      CONNECTION_REQUEST_SENT: 'Connection Request Sent',
+      CONNECTION_REQUEST_ACCEPTED: 'Connection Accepted',
+      MESSAGE_SENT: 'LinkedIn Message Sent',
+      MESSAGE_RECEIVED: 'Message Received',
+      INMAIL_SENT: 'InMail Sent',
+      LEAD_REPLIED: 'Lead Replied',
+      LEAD_INTERESTED: 'Marked Interested',
+      LEAD_NOT_INTERESTED: 'Not Interested',
+      PROFILE_VIEWED: 'Profile Viewed',
+      FOLLOW_SENT: 'Followed',
+      LIKE_SENT: 'Liked Post',
+    };
+
     for (const l of linkedinHistory) {
       entries.push({
         id: `li-${l.id}`,
-        timestamp: l.activity_timestamp,
+        timestamp: l.created_at,
         source: 'linkedin',
         category: 'linkedin',
         icon: <Linkedin className="h-3.5 w-3.5" />,
         iconColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-        title: getActivityLabel(l.activity_type),
-        description: l.message_text || l.response_text || null,
-        metadata: {
-          linkedin_url: l.linkedin_url,
-          response_sentiment: l.response_sentiment,
-        },
+        title: LI_LABELS[l.event_type] || l.event_type?.replace(/_/g, ' ') || 'LinkedIn Activity',
+        description: l.lead_email || l.lead_linkedin_url || null,
+        metadata: { linkedin_url: l.lead_linkedin_url, event_type: l.event_type },
       });
     }
 
@@ -635,6 +672,56 @@ export function UnifiedDealTimeline({ dealId, listingId }: UnifiedDealTimelinePr
                       {entry.description}
                     </p>
                   )}
+
+                  {/* Rich detail for calls */}
+                  {entry.source === 'call' && entry.metadata && (() => {
+                    const m = entry.metadata as Record<string, any>;
+                    return (m.duration || m.recording_url || m.recording_url_public || m.transcript_preview) ? (
+                      <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        {m.duration != null && m.duration > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {Math.floor(m.duration / 60)}m {m.duration % 60}s
+                          </span>
+                        )}
+                        {(m.recording_url || m.recording_url_public) && (
+                          <a
+                            href={m.recording_url_public || m.recording_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Mic className="h-3 w-3" />
+                            Recording
+                          </a>
+                        )}
+                        {m.transcript_preview && (
+                          <span className="flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            Transcript available
+                          </span>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {/* Rich detail for emails */}
+                  {entry.source === 'email' && entry.metadata && (() => {
+                    const m = entry.metadata as Record<string, any>;
+                    return (m.body_preview || m.has_attachments) ? (
+                      <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                        {m.has_attachments && (
+                          <span className="flex items-center gap-1">
+                            <FileCheck className="h-3 w-3" />
+                            Has attachments
+                          </span>
+                        )}
+                        {m.body_preview && (
+                          <p className="line-clamp-2 italic">{m.body_preview}</p>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               ))}
             </div>
