@@ -63,7 +63,34 @@ export const ADMIN_PROFILES: Record<string, AdminProfile> = {
     phone: '',
     calendlyUrl: ''
   },
+  'brandon.hall@sourcecodeals.com': {
+    email: 'brandon.hall@sourcecodeals.com',
+    name: 'Brandon Hall',
+    title: 'Deal Owner',
+    phone: '',
+    calendlyUrl: ''
+  },
+  'alia.ballout@sourcecodeals.com': {
+    email: 'alia.ballout@sourcecodeals.com',
+    name: 'Alia Ballout',
+    title: 'Deal Owner',
+    phone: '',
+    calendlyUrl: ''
+  },
 };
+
+export interface DealOwnerSender {
+  email: string;
+  name: string;
+  title: string;
+}
+
+export const DEAL_OWNER_SENDERS: DealOwnerSender[] = [
+  { email: 'support@sourcecodeals.com', name: 'SourceCo Support', title: 'Default' },
+  { email: 'bill.martin@sourcecodeals.com', name: 'Bill Martin', title: 'Principal & SVP - Growth' },
+  { email: 'alia.ballout@sourcecodeals.com', name: 'Alia Ballout', title: 'Deal Owner' },
+  { email: 'brandon.hall@sourcecodeals.com', name: 'Brandon Hall', title: 'Deal Owner' },
+];
 
 export const getAdminProfile = (email: string): AdminProfile | null => {
   return ADMIN_PROFILES[email] || null;
