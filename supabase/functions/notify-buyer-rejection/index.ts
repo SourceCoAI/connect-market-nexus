@@ -69,9 +69,9 @@ const handler = async (req: Request): Promise<Response> => {
       subject,
       htmlContent,
       textContent,
-      senderName: customSenderName || 'SourceCo',
-      senderEmail: customSenderEmail || undefined,
-      replyTo: customReplyTo || undefined,
+      senderName: customSenderName || 'SourceCo Notifications',
+      senderEmail: customSenderEmail || 'noreply@sourcecodeals.com',
+      replyTo: customReplyTo || 'support@sourcecodeals.com',
       isTransactional: true,
       metadata: { connectionRequestId },
     });
