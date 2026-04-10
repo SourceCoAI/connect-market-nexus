@@ -113,6 +113,18 @@ export const UserDetails = ({ user }: { user: User }) => {
                       );
                     }
 
+                    if (fieldKey === 'additional_phone_numbers') {
+                      const phones = fieldValue as string[] | undefined;
+                      return (
+                        <div key={fieldKey}>
+                          <span className="text-muted-foreground">{fieldLabel}:</span>{' '}
+                          {phones && phones.length > 0
+                            ? phones.join(', ')
+                            : '\u2014'}
+                        </div>
+                      );
+                    }
+
                     if (fieldKey === 'business_categories') {
                       return (
                         <div key={fieldKey} className="col-span-2">

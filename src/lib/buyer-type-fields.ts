@@ -20,6 +20,7 @@ export const BUYER_TYPE_FIELD_MAPPINGS = {
     'last_name', 
     'email',
     'phone_number',
+    'additional_phone_numbers',
     'company',
     'website',
     'linkedin_profile',
@@ -158,6 +159,7 @@ export const FIELD_LABELS = {
   last_name: 'Last Name',
   email: 'Email',
   phone_number: 'Phone',
+  additional_phone_numbers: 'Additional Phone Numbers',
   company: 'Company',
   website: 'Website',
   linkedin_profile: 'LinkedIn',
@@ -232,14 +234,14 @@ export const getFieldCategories = (buyerType: BuyerType | 'admin') => {
   if (buyerType === 'admin') {
     return {
       'Contact Information': BUYER_TYPE_FIELD_MAPPINGS.basic.filter(field => 
-        ['first_name', 'last_name', 'email', 'phone_number', 'company', 'job_title', 'website', 'linkedin_profile'].includes(field)
+        ['first_name', 'last_name', 'email', 'phone_number', 'additional_phone_numbers', 'company', 'job_title', 'website', 'linkedin_profile'].includes(field)
       ),
     };
   }
-  
+
   return {
-    'Contact Information': BUYER_TYPE_FIELD_MAPPINGS.basic.filter(field => 
-      ['first_name', 'last_name', 'email', 'phone_number', 'company', 'job_title', 'website', 'linkedin_profile'].includes(field)
+    'Contact Information': BUYER_TYPE_FIELD_MAPPINGS.basic.filter(field =>
+      ['first_name', 'last_name', 'email', 'phone_number', 'additional_phone_numbers', 'company', 'job_title', 'website', 'linkedin_profile'].includes(field)
     ),
     'Business Profile': [
       ...BUYER_TYPE_FIELD_MAPPINGS.profile,

@@ -181,7 +181,7 @@ export function ProfileForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone_number">Phone Number</Label>
+              <Label htmlFor="phone_number">Mobile Number 1</Label>
               <Input
                 id="phone_number"
                 name="phone_number"
@@ -192,7 +192,7 @@ export function ProfileForm({
               {(formData.additional_phone_numbers || []).map((num, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <Input
-                    placeholder="Additional phone number"
+                    placeholder={`Mobile Number ${idx + 2}`}
                     value={num}
                     onChange={(e) => {
                       const updated = [...(formData.additional_phone_numbers || [])];
@@ -225,7 +225,7 @@ export function ProfileForm({
                 }}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Add Phone Number
+                Add Mobile Number
               </Button>
             </div>
 
