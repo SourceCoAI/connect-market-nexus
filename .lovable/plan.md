@@ -1,47 +1,70 @@
 
 
-# Investigation Results + Remaining Fix
+# Deep Dive: Current State of Admin Email Preview + Sender Selection
 
-## What's Working
+## What's Fully Working
 
-1. **Auto-select logged-in admin as sender** -- `ConnectionRequestEmailDialog` uses `useAuth()` to match the admin's email against `DEAL_OWNER_SENDERS` and defaults to their address. Working.
+### 1. ConnectionRequestEmailDialog (the modal itself)
+- Auto-selects logged-in admin's email as default sender via `useAuth()` + `DEAL_OWNER_SENDERS` matching
+- Sender dropdown with support@, Bill, Alia, Brandon
+- Exact email body preview (approval and rejection templates match edge functions)
+- Edit button switches to `<Textarea>`, Reset button restores default
+- `onConfirm(comment, senderEmail, customBody?)` signature passes all three values
 
-2. **Editable email body** -- The dialog has Edit/Reset buttons, a `Textarea` for editing, and passes `customBody` through `onConfirm`. Working.
+### 2. Expanded Row Actions (ConnectionRequestActions/index.tsx)
+- Accept/Reject buttons open the email dialog
+- `handleEmailDialogConfirm` forwards `senderEmail` and `customBody` to `useConnectionRequestActions.handleAccept`/`handleReject`
+- Those handlers invoke `send-connection-notification` and `notify-buyer-rejection` with sender overrides and custom body -- **fully working**
 
-3. **Sender dropdown** -- `DEAL_OWNER_SENDERS` list with support@, Bill, Alia, Brandon. Working.
+### 3. WebflowLeadDetail
+- Opens email dialog on Accept/Decline
+- `handleEmailDialogConfirm` sends emails via edge functions with `senderEmail`, `senderName`, `replyTo`, and `customBodyText` -- **fully working**
 
-4. **Expanded row actions** (ConnectionRequestActions) -- Opens the email dialog, passes `senderEmail` and `customBody` to `useConnectionRequestActions.handleAccept`/`handleReject`, which forward them to the edge functions. Working.
+### 4. AdminRequests.tsx Table-Level Actions (Desktop)
+- `confirmAction(comment, senderEmail, customBody)` correctly invokes edge functions directly with all overrides -- **fully working** (fixed in previous iteration)
 
-5. **WebflowLeadDetail** -- Opens the email dialog, sends emails with sender + customBody overrides. Working.
+### 5. Edge Functions
+- Both `send-connection-notification` and `notify-buyer-rejection` accept and use `senderEmail`, `senderName`, `replyTo`, `customBodyText` -- **fully working**
 
-6. **Edge functions** -- Both `send-connection-notification` and `notify-buyer-rejection` accept and use `senderEmail`, `senderName`, `replyTo`, `customBodyText`. Working.
+### 6. Admin Profiles
+- `DEAL_OWNER_SENDERS` contains support@, Bill, Alia, Brandon -- **correct**
 
-## What's Broken: AdminRequests.tsx Table-Level Actions
+---
 
-The `confirmAction` function in `AdminRequests.tsx` (line 245) is the handler for the `ConnectionRequestEmailDialog` rendered at the page level (line 376-383). It:
+## What's Broken: MobileConnectionRequests
 
-- **Ignores `senderEmail`** -- the parameter is received as `_senderEmail` (prefixed with underscore = intentionally unused)
-- **Ignores `customBody`** -- the function signature doesn't even accept it: `async (comment: string, _senderEmail?: string)`
-- **Uses legacy email functions** -- calls `sendConnectionApprovalEmail(selectedRequest)` and `sendConnectionRejectionEmail(selectedRequest)` which are old utility functions from `useAdmin()` that don't support sender overrides or custom body
+`MobileConnectionRequests.tsx` (lines 105-123) renders its **own** `ConnectionRequestEmailDialog` but the `onConfirm` handler **discards all three parameters**:
 
-This means: when an admin clicks Approve/Reject from the **table-level buttons** (not the expanded row), the email dialog opens correctly with sender selection and editable body, but the selected sender and any edits are **silently discarded**. The email is sent from the default address with the default body.
+```typescript
+onConfirm={async (_comment, _senderEmail, _customBody) => {
+  // All parameters ignored!
+  await onApprove(selectedRequest);  // Just calls parent handler
+}}
+```
 
-The same issue propagates to `MobileConnectionRequests` since it delegates `onApprove`/`onReject` back to `AdminRequests.tsx`.
+The `onApprove`/`onReject` callbacks point back to `AdminRequests.handleAction`, which opens the **AdminRequests-level** dialog. So on mobile:
+1. User taps Approve → `MobileConnectionRequests` opens its own dialog
+2. Admin selects sender, edits email, clicks confirm
+3. The sender and custom body are **silently discarded**
+4. `onApprove(selectedRequest)` is called, which triggers `handleAction` on `AdminRequests`, which would open a **second dialog**
+
+This is a double-dialog bug AND a data-loss bug.
+
+### Fix
+
+Remove the redundant `ConnectionRequestEmailDialog` from `MobileConnectionRequests`. Instead, have the mobile approve/reject buttons directly call the parent's `onApprove`/`onReject` (which already open the AdminRequests-level dialog that works correctly).
 
 ## Plan
 
-### Fix `AdminRequests.tsx` `confirmAction`
+### 1. Fix `MobileConnectionRequests.tsx`
 
-Update the function to:
-1. Accept `customBody` as a third parameter: `async (comment: string, senderEmail: string, customBody?: string)`
-2. Pass `senderEmail` and `customBody` to the edge function invocations
-3. Replace the legacy `sendConnectionApprovalEmail`/`sendConnectionRejectionEmail` calls with direct `supabase.functions.invoke()` calls that include the sender and custom body overrides (same pattern used in `useConnectionRequestActions.ts`)
+Remove the local `ConnectionRequestEmailDialog`, `selectedRequest`, `actionType`, `isDialogOpen` state, and the `handleAction` wrapper. Change `onApprove` and `onReject` button callbacks to call the parent props directly (they already open the AdminRequests-level dialog with full sender/customBody support).
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/admin/AdminRequests.tsx` | Fix `confirmAction` to forward `senderEmail` and `customBody` to edge functions instead of using legacy email helpers |
+| `src/components/admin/MobileConnectionRequests.tsx` | Remove redundant email dialog; pass approve/reject directly to parent |
 
-One file, one function fix. Everything else is already wired correctly.
+Everything else is complete and working. One file, one fix.
 
