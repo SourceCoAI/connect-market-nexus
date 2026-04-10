@@ -13,7 +13,7 @@ interface ConnectionNotificationRequest {
   requesterName: string;
   requesterEmail: string;
   listingTitle: string;
-  listingId: string;
+  listingId?: string;
   message?: string;
   requestId?: string;
   senderEmail?: string;
@@ -96,7 +96,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Processing connection notification:', { type, requesterName, listingTitle, requestId });
 
     const loginUrl = 'https://marketplace.sourcecodeals.com/login';
-    const listingUrl = `https://marketplace.sourcecodeals.com/listing/${listingId}`;
+    const listingUrl = listingId ? `https://marketplace.sourcecodeals.com/listing/${listingId}` : 'https://marketplace.sourcecodeals.com/marketplace';
     const adminUrl = 'https://marketplace.sourcecodeals.com/admin/marketplace/connections';
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);

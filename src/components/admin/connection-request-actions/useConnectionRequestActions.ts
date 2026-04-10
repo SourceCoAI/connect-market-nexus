@@ -82,10 +82,10 @@ export function useConnectionRequestActions({
 
   // ─── Decision Handlers ───
 
-  const handleAccept = async (senderEmail?: string, customBody?: string) => {
+  const handleAccept = async (senderEmail?: string, customBody?: string, adminComment?: string) => {
     if (!requestId || updateStatus.isPending) return;
     try {
-      await updateStatus.mutateAsync({ requestId, status: 'approved' });
+      await updateStatus.mutateAsync({ requestId, status: 'approved', notes: adminComment || undefined });
       const listingName = listing?.title || 'this deal';
 
       // Check fee agreement status to customize the approval message
@@ -120,7 +120,7 @@ export function useConnectionRequestActions({
       const buyerName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
       const listingTitle = listing?.title || 'the listing';
       const listingId = listing?.id;
-      if (buyerEmail && listingId) {
+      if (buyerEmail) {
         // Look up sender name from DEAL_OWNER_SENDERS
         const { DEAL_OWNER_SENDERS } = await import('@/lib/admin-profiles');
         const senderInfo = senderEmail ? DEAL_OWNER_SENDERS.find(s => s.email === senderEmail) : null;
@@ -208,7 +208,7 @@ export function useConnectionRequestActions({
     }
   };
 
-  const handleReject = async (senderEmail?: string, customBody?: string) => {
+  const handleReject = async (senderEmail?: string, customBody?: string, adminComment?: string) => {
     if (!requestId || isRejecting) return;
     setIsRejecting(true);
     const note = rejectNote.trim();
@@ -216,7 +216,7 @@ export function useConnectionRequestActions({
       await updateStatus.mutateAsync({
         requestId,
         status: 'rejected',
-        notes: note || undefined,
+        notes: adminComment || note || undefined,
       });
       await sendMessage.mutateAsync({
         connection_request_id: requestId,
