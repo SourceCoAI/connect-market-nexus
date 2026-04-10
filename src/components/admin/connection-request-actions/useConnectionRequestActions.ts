@@ -105,8 +105,8 @@ export function useConnectionRequestActions({
       }
 
       const accessMessage = buyerHasFee
-        ? `Your introduction to ${listingName} has been approved. You now have access to the deal overview and full data room documents. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`
-        : `Your introduction to ${listingName} has been approved. You can now view the deal overview. To unlock the full data room and supporting documents, please sign your Fee Agreement. Our team will facilitate the introduction to the business owner — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`;
+        ? `Your request for ${listingName} has been approved. You now have access to the deal overview and full data room documents. Our team will be in touch — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`
+        : `Your request for ${listingName} has been approved. You can now view the deal overview. To unlock the full data room and supporting documents, please sign your Fee Agreement. Our team will be in touch — expect to hear from us within one business day. If you have any questions in the meantime, reply here.`;
 
       await sendMessage.mutateAsync({
         connection_request_id: requestId,
@@ -157,7 +157,7 @@ export function useConnectionRequestActions({
             user_id: user.id,
             notification_type: 'request_approved',
             title: 'Connection Approved',
-            message: `Your introduction request for "${listingTitle}" has been approved.`,
+            message: `Your request for "${listingTitle}" has been approved.`,
             connection_request_id: requestId || null,
             metadata: { listing_id: listingId },
           })
@@ -263,7 +263,7 @@ export function useConnectionRequestActions({
             user_id: user.id,
             notification_type: 'status_changed',
             title: 'Connection Update',
-            message: `Your introduction request for "${rejListingTitle}" was not approved at this time.`,
+            message: `Your request for "${rejListingTitle}" was not approved at this time.`,
             connection_request_id: requestId || null,
             metadata: { listing_id: listing?.id },
           })
@@ -306,7 +306,7 @@ export function useConnectionRequestActions({
             user_id: user.id,
             notification_type: 'status_changed',
             title: 'Request Under Review',
-            message: `Your introduction request for "${listingTitle}" is back under review.`,
+            message: `Your request for "${listingTitle}" is back under review.`,
             connection_request_id: requestId,
             metadata: { listing_id: listing?.id },
           })

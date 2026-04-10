@@ -80,7 +80,12 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
     const senderInfo = senderEmail ? DEAL_OWNER_SENDERS.find(s => s.email === senderEmail) : null;
 
     if (emailActionType === 'approve') {
-      updateStatus.mutate({ requestId: request.id, status: 'approved', notes: comment || undefined });
+      try {
+        await updateStatus.mutateAsync({ requestId: request.id, status: 'approved', notes: comment || undefined });
+      } catch (err) {
+        console.error('[webflow-approve] Status update failed:', err);
+        return; // Don't send email if status update failed
+      }
 
       // Send approval email
       const buyerEmail = request.lead_email || request.user?.email;
@@ -110,7 +115,12 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
           .catch((err) => console.error('[webflow-approval-email] Failed:', err));
       }
     } else if (emailActionType === 'reject') {
-      updateStatus.mutate({ requestId: request.id, status: 'rejected', notes: comment || rejectNote || undefined });
+      try {
+        await updateStatus.mutateAsync({ requestId: request.id, status: 'rejected', notes: comment || rejectNote || undefined });
+      } catch (err) {
+        console.error('[webflow-reject] Status update failed:', err);
+        return; // Don't send email if status update failed
+      }
 
       // Send rejection email
       const buyerEmail = request.lead_email || request.user?.email;

@@ -29,19 +29,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMarkConnectionRequestsViewed } from '@/hooks/admin/use-mark-connection-requests-viewed';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
+import { useUpdateConnectionRequestStatus } from '@/hooks/admin/use-connection-request-status';
 
 const AdminRequests = () => {
   const queryClient = useQueryClient();
   const {
     useConnectionRequests,
-    useConnectionRequestsMutation,
     sendCustomApprovalEmail,
   } = useAdmin();
   const { markAsViewed } = useMarkConnectionRequestsViewed();
 
   const { data: requests = [], isLoading, error, refetch } = useConnectionRequests();
   
-  const { mutateAsync: updateRequest, isPending: isUpdating } = useConnectionRequestsMutation();
+  // Use the unified direct .update() hook instead of the RPC-based mutation
+  const updateStatus = useUpdateConnectionRequestStatus();
+  const isUpdating = updateStatus.isPending;
 
   const isMobile = useIsMobile();
 
@@ -243,10 +245,10 @@ const AdminRequests = () => {
   const confirmAction = async (comment: string, senderEmail?: string, customBody?: string) => {
     if (selectedRequest && actionType) {
       try {
-        await updateRequest({
+        await updateStatus.mutateAsync({
           requestId: selectedRequest.id,
           status: actionType === 'approve' ? 'approved' : 'rejected',
-          adminComment: comment,
+          notes: comment || undefined,
         });
 
         // Force refetch
