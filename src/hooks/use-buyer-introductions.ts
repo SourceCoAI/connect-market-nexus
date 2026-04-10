@@ -229,7 +229,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
     try {
       // Phase 5 (F-B1): Use the server-side RPC which wraps contact upsert +
       // deal_pipeline insert + introduction status advance in one transaction.
-      const { data: newDealId, error: rpcError } = await supabase.rpc(
+      const { data: newDealId, error: rpcError } = await (supabase as any).rpc(
         'create_deal_from_introduction',
         { p_introduction_id: buyer.id },
       );
@@ -254,6 +254,7 @@ export function useBuyerIntroductions(listingId: string | undefined) {
   // what the RPC consolidates.
   //
    
+  // @ts-ignore -- dead code kept for reference
   async function _legacyCreateDealFromIntroduction_DEAD(
     buyer: BuyerIntroduction,
   ): Promise<boolean> {

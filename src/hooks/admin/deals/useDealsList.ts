@@ -121,8 +121,8 @@ export function useArchivedDeals(enabled: boolean) {
   return useQuery({
     queryKey: ['deals-archived'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('deal_pipeline' as 'deals')
+      const { data, error } = await (supabase as any)
+        .from('deal_pipeline')
         .select(
           `
           id, title, description, value, priority, probability,

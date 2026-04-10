@@ -434,8 +434,15 @@ export function ImprovedListingEditor({
   };
 
   const handleFormSubmit = form.handleSubmit(async (formData) => {
-    // formData here has Zod transforms applied (numbers parsed, location as string)
-    await handleSubmit(formData as unknown as ListingFormValues);
+    // formData has Zod transforms applied (numbers parsed, location as string)
+    // Explicitly merge description_html/json which are set via setValue() without a FormField
+    const rawValues = form.getValues();
+    const enrichedData = {
+      ...formData,
+      description_html: rawValues.description_html,
+      description_json: rawValues.description_json,
+    };
+    await handleSubmit(enrichedData as unknown as ListingFormValues);
   }, (errors) => {
     const errorFields = Object.keys(errors)
       .map((key) => {
