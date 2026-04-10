@@ -240,7 +240,7 @@ const AdminRequests = () => {
     setIsDialogOpen(true);
   };
 
-  const confirmAction = async (comment: string, _senderEmail?: string) => {
+  const confirmAction = async (comment: string, senderEmail?: string, customBody?: string) => {
     if (selectedRequest && actionType) {
       try {
         await updateRequest({
@@ -252,19 +252,45 @@ const AdminRequests = () => {
         // Force refetch
         await refetch();
 
-        // Send email notification (non-blocking)
+        // Resolve sender details
+        const { DEAL_OWNER_SENDERS } = await import('@/lib/admin-profiles');
+        const sender = DEAL_OWNER_SENDERS.find(s => s.email === senderEmail);
+        const finalSenderEmail = senderEmail || 'support@sourcecodeals.com';
+        const finalSenderName = sender?.name || 'SourceCo';
+
+        // Send email notification via proper edge functions (non-blocking)
         if (actionType === 'approve') {
-          sendConnectionApprovalEmail(selectedRequest).catch((e) =>
-            console.error('Email send failed:', e),
-          );
+          supabase.functions.invoke('send-connection-notification', {
+            body: {
+              type: 'buyer_approval',
+              connectionRequestId: selectedRequest.id,
+              buyerEmail: selectedRequest.user?.email,
+              buyerName: `${selectedRequest.user?.first_name || ''} ${selectedRequest.user?.last_name || ''}`.trim(),
+              listingTitle: selectedRequest.listing?.title || '',
+              companyName: selectedRequest.listing?.internal_company_name || selectedRequest.listing?.title || '',
+              senderEmail: finalSenderEmail,
+              senderName: finalSenderName,
+              replyTo: finalSenderEmail,
+              customBodyText: customBody || undefined,
+            },
+          }).catch((e: Error) => console.error('Email send failed:', e));
           toast({
             title: 'Request approved',
             description: 'Connection request has been approved',
           });
         } else {
-          sendConnectionRejectionEmail(selectedRequest).catch((e) =>
-            console.error('Email send failed:', e),
-          );
+          supabase.functions.invoke('notify-buyer-rejection', {
+            body: {
+              connectionRequestId: selectedRequest.id,
+              buyerEmail: selectedRequest.user?.email,
+              buyerName: `${selectedRequest.user?.first_name || ''} ${selectedRequest.user?.last_name || ''}`.trim(),
+              companyName: selectedRequest.listing?.internal_company_name || selectedRequest.listing?.title || '',
+              senderEmail: finalSenderEmail,
+              senderName: finalSenderName,
+              replyTo: finalSenderEmail,
+              customBodyText: customBody || undefined,
+            },
+          }).catch((e: Error) => console.error('Email send failed:', e));
           toast({
             title: 'Request rejected',
             description: 'Connection request has been rejected',
