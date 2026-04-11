@@ -252,7 +252,7 @@ export default function ReMarketingReferralPartnerDetail() {
         <div className="grid grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">Total Deals</div>
+              <div className="text-sm text-muted-foreground">Total Opportunities</div>
               <div className="text-2xl font-bold">{data.kpis.total}</div>
             </CardContent>
           </Card>

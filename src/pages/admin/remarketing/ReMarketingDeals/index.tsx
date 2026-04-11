@@ -190,15 +190,15 @@ const ReMarketingDeals = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Active Deals</h1>
+          <h1 className="text-2xl font-bold text-foreground">Active Opportunities</h1>
           <p className="text-muted-foreground">
-            {h.listings?.length || 0} deals across {h.universeCount} buyer universes
+            {h.listings?.length || 0} opportunities across {h.universeCount} buyer universes
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={() => h.setShowAddDealDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Deal
+            Add Opportunity
           </Button>
           <Button variant="outline" onClick={() => h.setShowImportDialog(true)}>
             <Upload className="h-4 w-4 mr-2" />
@@ -211,7 +211,7 @@ const ReMarketingDeals = () => {
             className="border-primary text-primary hover:bg-primary/10"
           >
             <Zap className="h-4 w-4 mr-2" />
-            {h.isEnrichingAll ? 'Queueing...' : 'Enrich Deals'}
+            {h.isEnrichingAll ? 'Queueing...' : 'Enrich Opportunities'}
           </Button>
           <Button
             onClick={() => h.setShowCalculateDialog(true)}
@@ -219,7 +219,7 @@ const ReMarketingDeals = () => {
             className="bg-slate-800 hover:bg-slate-700 text-white"
           >
             <Calculator className="h-4 w-4 mr-2" />
-            {h.isCalculating ? 'Scoring...' : 'Score Deals'}
+            {h.isCalculating ? 'Scoring...' : 'Score Opportunities'}
           </Button>
           <Popover open={h.showCustomDatePicker} onOpenChange={h.setShowCustomDatePicker}>
             <PopoverTrigger asChild>
@@ -315,7 +315,7 @@ const ReMarketingDeals = () => {
       <div className="flex items-center gap-1 border-b pb-1">
         {[
           { key: 'all', label: 'All' },
-          { key: 'my_deals', label: 'My Deals' },
+          { key: 'my_deals', label: 'My Opportunities' },
           { key: 'marketplace', label: 'Marketplace' },
           { key: 'marketplace_queue', label: 'Marketplace Queue' },
         ].map((tab) => (
@@ -455,7 +455,7 @@ const ReMarketingDeals = () => {
                         onResize={(w) => h.handleColumnResize('dealName', w)}
                         minWidth={100}
                       >
-                        <SortableHeader column="deal_name" label="Deal Name" />
+                        <SortableHeader column="deal_name" label="Opportunity Name" />
                       </ResizableHeader>
                       <ResizableHeader
                         width={h.columnWidths.referralSource}

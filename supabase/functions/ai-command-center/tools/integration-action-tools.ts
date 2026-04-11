@@ -1,7 +1,7 @@
 /**
  * Integration Action Tools
  * Tools that integrate with external services: contact enrichment (Serper+Prospeo),
- * PhoneBurner dialer push, and PandaDoc document sending.
+ * PhoneBurner dialer push, and document sending.
  *
  * These tools call external APIs directly using shared clients or API keys from env,
  * avoiding the need to call other edge functions (which require JWT auth).

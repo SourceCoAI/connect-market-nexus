@@ -542,7 +542,7 @@ export const MIGRATION_HISTORY: MigrationRecord[] = [
   {
     id: '20260224000000',
     date: '2026-02-24',
-    purpose: 'PandaDoc integration: create pandadoc_webhook_log table',
+    purpose: 'Agreement webhook logging: create pandadoc_webhook_log table',
     tables: ['pandadoc_webhook_log'],
   },
   {

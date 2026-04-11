@@ -295,7 +295,7 @@ const EMAILS: EmailDef[] = [
     category: 'reengagement',
     trigger: 'Cron: 3 days after approval, NDA still unsigned',
     triggerDetail:
-      'Fired by pg_cron daily at 9am UTC. send-nda-reminder checks firm_agreements for buyers whose NDA email was sent 2.5–3.5 days ago and nda_signed = false. Deduplication prevents double-sends — checks pandadoc_webhook_log before sending.',
+      'Fired by pg_cron daily at 9am UTC. send-nda-reminder checks firm_agreements for buyers whose NDA email was sent 2.5–3.5 days ago and nda_signed = false. Deduplication prevents double-sends — checks webhook log before sending.',
     file: 'supabase/functions/send-nda-reminder/index.ts',
     subject: 'Your documents are still waiting to be signed.',
     preheader: 'Sign your NDA and Fee Agreement to unlock deal details and introductions.',

@@ -38,7 +38,7 @@ export const DealsKPICards = ({
               <Building2 className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total Deals</p>
+              <p className="text-sm text-muted-foreground">Total Opportunities</p>
               <p className="text-2xl font-bold">{totalDeals}</p>
             </div>
           </div>
@@ -58,7 +58,7 @@ export const DealsKPICards = ({
               <Star className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Priority Deals</p>
+              <p className="text-sm text-muted-foreground">Priority Opportunities</p>
               <p className="text-2xl font-bold text-amber-600">{priorityDeals}</p>
             </div>
           </div>

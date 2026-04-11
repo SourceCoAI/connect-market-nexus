@@ -49,7 +49,7 @@ export const WeeklyChart = ({ weeklyData }: WeeklyChartProps) => {
     <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
-          Deals Added to Active Deals
+          Opportunities Added to Active Opportunities
         </h3>
         <span className="text-xs text-gray-400">{total} total (8 weeks)</span>
       </div>

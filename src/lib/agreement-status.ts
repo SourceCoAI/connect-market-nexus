@@ -33,16 +33,16 @@ const STATUS_MAP: Record<AgreementDisplayStatus, AgreementDisplayInfo> = {
 
 /**
  * Resolve display status from DB fields.
- * Priority: statusText (canonical) > pandadocStatus (fallback) > not_sent
+ * Priority: statusText (canonical) > legacyStatus (fallback) > not_sent
  *
  * @param statusText  The canonical nda_status / fee_agreement_status text field
  *                    ('not_started' | 'sent' | 'signed' | 'declined' | 'expired' | …)
- * @param pandadocStatus  PandaDoc-specific status (fallback for older records)
+ * @param legacyStatus  Legacy provider status (fallback for older records)
  * @param expiresAt  Optional expiry timestamp
  */
 export function resolveAgreementStatus(
   statusText: string | null,
-  pandadocStatus?: string | null,
+  legacyStatus?: string | null,
   expiresAt?: string | null,
 ): AgreementDisplayStatus {
   // Check expiry first
@@ -59,8 +59,8 @@ export function resolveAgreementStatus(
     if (s === 'not_started') return 'not_sent';
   }
 
-  // Fallback: map PandaDoc / legacy statuses — strip "document." prefix if present
-  const raw = (pandadocStatus || '').toLowerCase().trim();
+  // Fallback: map legacy statuses — strip "document." prefix if present
+  const raw = (legacyStatus || '').toLowerCase().trim();
   const normalized = raw.replace(/^document\./, '');
   if (normalized === 'completed' || normalized === 'signed') return 'signed';
   if (normalized === 'declined' || normalized === 'voided') return 'declined';

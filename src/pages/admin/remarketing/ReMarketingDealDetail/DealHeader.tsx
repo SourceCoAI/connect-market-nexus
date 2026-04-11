@@ -171,7 +171,7 @@ export function DealHeader({
                 </Badge>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
-                <p className="font-medium">Deal Data Quality: {dataCompleteness}%</p>
+                <p className="font-medium">Opportunity Data Quality: {dataCompleteness}%</p>
                 <p className="text-xs text-muted-foreground">
                   {Math.round((dataCompleteness / 100) * 10)} of 10 fields filled
                 </p>

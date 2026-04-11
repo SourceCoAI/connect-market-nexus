@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState, useEffect, useRef } from 'react';
-import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
+import { AgreementSigningModal } from '@/components/agreements/AgreementSigningModal';
 import { useAgreementStatusSync } from '@/hooks/use-agreement-status-sync';
 
 interface DocumentItem {

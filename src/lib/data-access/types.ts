@@ -71,6 +71,11 @@ export interface ContactRecord {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  mobile_phone_1: string | null;
+  mobile_phone_2: string | null;
+  mobile_phone_3: string | null;
+  office_phone: string | null;
+  phone_source: string | null;
   linkedin_url: string | null;
   title: string | null;
   contact_type: string;

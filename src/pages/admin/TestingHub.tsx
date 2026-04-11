@@ -5,7 +5,6 @@ import { Progress } from '@/components/ui/progress';
 import {
   Loader2,
   FlaskConical,
-  Activity,
   Bot,
   Mail,
   ListChecks,
@@ -27,7 +26,6 @@ import type { ChatbotTestContext } from './chatbot-test-runner/chatbotInfraTests
 
 // Lazy-loaded tab components
 const SystemTestRunner = lazy(() => import('@/pages/admin/SystemTestRunner'));
-const PandaDocHealthCheck = lazy(() => import('@/pages/admin/PandaDocHealthCheck'));
 const ChatbotTestRunner = lazy(() => import('@/pages/admin/ChatbotTestRunner'));
 const SmartleadTestPage = lazy(() => import('@/pages/admin/SmartleadTestPage'));
 const ThirtyQuestionTest = lazy(() => import('@/pages/admin/ThirtyQuestionTest'));
@@ -41,7 +39,6 @@ const EmailTestCentre = lazy(() => import('@/pages/admin/EmailTestCentre'));
 
 // Storage keys — must match individual tab components exactly
 const SYSTEM_TEST_KEY = 'sourceco-system-test-results';
-const PANDADOC_KEY = 'sourceco-pandadoc-test-results';
 const CHATBOT_INFRA_KEY = 'sourceco-chatbot-infra-test-results';
 const SCENARIO_KEY = 'sourceco-chatbot-scenario-results';
 const THIRTY_Q_KEY = 'sourceco-30q-test-results';
@@ -144,7 +141,7 @@ async function runTestLoop<Ctx>(
 }
 
 // ── Suite count ──
-const SUITE_COUNT = 5; // System Tests, PandaDoc, Chatbot Infra, Chatbot Scenarios, 30-Question QA
+const SUITE_COUNT = 4; // System Tests, Chatbot Infra, Chatbot Scenarios, 30-Question QA
 
 const Loading = () => (
   <div className="flex items-center justify-center py-20">
@@ -264,65 +261,7 @@ export default function TestingHub() {
       if (trackingRunId) await tracking.updateProgress(trackingRunId, suitesCompleted);
       if (abortRef.current) throw new Error('aborted');
 
-      // --- Suite 2: PandaDoc Health Check ---
-      updateProgress('PandaDoc Health Check', 0, 1);
-      const { supabase } = await import('@/integrations/supabase/client');
-
-      let pandaDocStatus: 'pass' | 'fail' = 'pass';
-      let pandaDocError: string | undefined;
-      const pandaDocStart = performance.now();
-
-      try {
-        const { data, error } = await supabase.functions.invoke('pandadoc-integration-test');
-        if (error) {
-          pandaDocStatus = 'fail';
-          pandaDocError = error.message || 'Edge function invocation failed';
-          localStorage.setItem(PANDADOC_KEY, JSON.stringify({ error: pandaDocError, results: [] }));
-        } else if (data?.error) {
-          pandaDocStatus = 'fail';
-          pandaDocError = data.error;
-          localStorage.setItem(PANDADOC_KEY, JSON.stringify({ error: data.error, results: [] }));
-        } else {
-          localStorage.setItem(PANDADOC_KEY, JSON.stringify(data));
-        }
-      } catch (e: unknown) {
-        pandaDocStatus = 'fail';
-        pandaDocError = e instanceof Error ? e.message : 'Unexpected error';
-        localStorage.setItem(PANDADOC_KEY, JSON.stringify({ error: pandaDocError, results: [] }));
-      }
-
-      const pandaDocDuration = Math.round(performance.now() - pandaDocStart);
-      if (trackingRunId) {
-        await tracking.saveResults(trackingRunId, 'pandadoc', [
-          {
-            id: 'pandadoc-health',
-            name: 'PandaDoc Health Check',
-            category: 'Integration',
-            status: pandaDocStatus,
-            error: pandaDocError,
-            durationMs: pandaDocDuration,
-          },
-        ]);
-      }
-      if (pandaDocStatus === 'pass') totalPassed++;
-      else {
-        totalFailed++;
-        if (pandaDocError)
-          errorEntries.push({
-            testId: 'pandadoc-health',
-            testName: 'PandaDoc Health Check',
-            suite: 'pandadoc',
-            error: pandaDocError,
-          });
-      }
-
-      totalRun += 1;
-      suitesCompleted = 2;
-      if (trackingRunId) await tracking.updateProgress(trackingRunId, suitesCompleted);
-      updateProgress('PandaDoc Health Check', 1, 1);
-      if (abortRef.current) throw new Error('aborted');
-
-      // --- Suite 3: Chatbot Infra Tests ---
+      // --- Suite 2: Chatbot Infra Tests ---
       const { buildChatbotTests, CHATBOT_INFRA_STORAGE_KEY } =
         await import('./chatbot-test-runner/chatbotInfraTests');
       const chatbotTests = buildChatbotTests();
@@ -370,11 +309,11 @@ export default function TestingHub() {
         } else if (r.status === 'warn') totalWarnings++;
       }
 
-      suitesCompleted = 3;
+      suitesCompleted = 2;
       if (trackingRunId) await tracking.updateProgress(trackingRunId, suitesCompleted);
       if (abortRef.current) throw new Error('aborted');
 
-      // --- Suite 4: Chatbot Scenarios (auto-runnable only) ---
+      // --- Suite 3: Chatbot Scenarios (auto-runnable only) ---
       const { getChatbotTestScenarios, runAutoChecks: runScenarioAutoChecks } =
         await import('./chatbot-test-runner/chatbotTestScenarios');
       const { sendAIQuery } = await import('./chatbot-test-runner/chatbotInfraTests');
@@ -473,11 +412,11 @@ export default function TestingHub() {
       }
 
       updateProgress('Chatbot Scenarios', autoRunnable.length, autoRunnable.length);
-      suitesCompleted = 4;
+      suitesCompleted = 3;
       if (trackingRunId) await tracking.updateProgress(trackingRunId, suitesCompleted);
       if (abortRef.current) throw new Error('aborted');
 
-      // --- Suite 5: 30-Question QA ---
+      // --- Suite 4: 30-Question QA ---
       const { THIRTY_Q_SUITE } = await import('./chatbot-test-runner/thirtyQuestionSuite');
 
       updateProgress('30-Question QA', 0, THIRTY_Q_SUITE.length);
@@ -565,7 +504,7 @@ export default function TestingHub() {
       }
 
       updateProgress('30-Question QA', THIRTY_Q_SUITE.length, THIRTY_Q_SUITE.length);
-      suitesCompleted = 5;
+      suitesCompleted = 4;
 
       // Complete the tracking run
       if (trackingRunId) {
@@ -660,32 +599,7 @@ export default function TestingHub() {
       /* skip */
     }
 
-    // 2. PandaDoc
-    try {
-      const raw = localStorage.getItem(PANDADOC_KEY);
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (data.error) {
-          suites['pandadoc'] = { error: data.error };
-        } else {
-          const results = data.results || [];
-          const pass = results.filter((r: { status: string }) => r.status === 'pass').length;
-          const fail = results.filter((r: { status: string }) => r.status === 'fail').length;
-          const warn = results.filter((r: { status: string }) => r.status === 'warn').length;
-          const skip = results.filter((r: { status: string }) => r.status === 'skip').length;
-          suites['pandadoc'] = {
-            ranAt: data.ranAt || null,
-            summary: { total: results.length, pass, fail, warn, skip },
-            results,
-          };
-        }
-        hasSomeData = true;
-      }
-    } catch {
-      /* skip */
-    }
-
-    // 3. Chatbot Infra
+    // 2. Chatbot Infra
     try {
       const raw = localStorage.getItem(CHATBOT_INFRA_KEY);
       if (raw) {
@@ -784,7 +698,7 @@ export default function TestingHub() {
             <div className="space-y-1 min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight">Testing & Diagnostics</h1>
               <p className="text-sm text-muted-foreground">
-                Enrichment tests, system integration tests, PandaDoc health checks, Smartlead
+                Enrichment tests, system integration tests, Smartlead
                 integration, and AI chatbot QA.
               </p>
             </div>
@@ -859,11 +773,7 @@ export default function TestingHub() {
               <FlaskConical className="h-4 w-4" />
               System Tests
             </TabsTrigger>
-            <TabsTrigger value="pandadoc" className="gap-2">
-              <Activity className="h-4 w-4" />
-              PandaDoc Health
-            </TabsTrigger>
-            <TabsTrigger value="smartlead" className="gap-2">
+<TabsTrigger value="smartlead" className="gap-2">
               <Mail className="h-4 w-4" />
               Smartlead
             </TabsTrigger>
@@ -907,13 +817,7 @@ export default function TestingHub() {
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="pandadoc">
-            <Suspense fallback={<Loading />}>
-              <PandaDocHealthCheck />
-            </Suspense>
-          </TabsContent>
-
-          <TabsContent value="smartlead">
+<TabsContent value="smartlead">
             <Suspense fallback={<Loading />}>
               <SmartleadTestPage />
             </Suspense>
