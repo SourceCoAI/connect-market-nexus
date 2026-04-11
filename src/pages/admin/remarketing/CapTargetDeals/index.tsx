@@ -153,7 +153,7 @@ export default function CapTargetDeals() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">CapTarget Deals</h1>
+          <h1 className="text-2xl font-bold text-foreground">CapTarget Opportunities</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {data.totalDeals} total &middot; {data.unpushedCount} un-pushed &middot;{' '}
             {data.interestCount} interest &middot; {data.enrichedCount} enriched &middot;{' '}

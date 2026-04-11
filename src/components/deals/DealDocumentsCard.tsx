@@ -19,7 +19,7 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
-import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
+import { AgreementSigningModal } from '@/components/agreements/AgreementSigningModal';
 import { useQuery } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';

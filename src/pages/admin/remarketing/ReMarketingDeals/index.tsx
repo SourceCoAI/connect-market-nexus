@@ -190,15 +190,15 @@ const ReMarketingDeals = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Active Deals</h1>
+          <h1 className="text-2xl font-bold text-foreground">Active Opportunities</h1>
           <p className="text-muted-foreground">
-            {h.listings?.length || 0} deals across {h.universeCount} buyer universes
+            {h.listings?.length || 0} opportunities across {h.universeCount} buyer universes
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={() => h.setShowAddDealDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Deal
+            Add Opportunity
           </Button>
           <Button variant="outline" onClick={() => h.setShowImportDialog(true)}>
             <Upload className="h-4 w-4 mr-2" />

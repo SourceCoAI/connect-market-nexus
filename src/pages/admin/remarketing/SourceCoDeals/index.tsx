@@ -259,7 +259,7 @@ export default function SourceCoDeals() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">SourceCo Deals</h1>
+          <h1 className="text-2xl font-bold text-foreground">SourceCo Opportunities</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {hook.totalDeals} total &middot; {hook.unpushedCount} un-pushed &middot;{' '}
             {hook.enrichedCount} enriched &middot; {hook.scoredCount} scored

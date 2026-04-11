@@ -56,8 +56,6 @@ export const CSP_DIRECTIVES = {
   ],
   'frame-src': [
     "'self'",
-    // PandaDoc embedded signing
-    'https://app.pandadoc.com',
   ],
   'object-src': ["'none'"],
   'base-uri': ["'self'"],

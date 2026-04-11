@@ -68,7 +68,7 @@ const ReMarketingDashboard = () => {
         cards && (
           <div className="grid gap-3 md:grid-cols-5">
             <div className="rounded-xl border bg-gray-900 text-white px-4 py-3.5">
-              <p className="text-[10px] uppercase tracking-widest text-gray-400">Active Deals</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-400">Active Opportunities</p>
               <p className="text-2xl font-bold mt-1">{cards.all_visible}</p>
               <p className="text-[11px] text-gray-400 mt-0.5">
                 +{cards.all_new_in_period} in period
@@ -199,11 +199,11 @@ const ReMarketingDashboard = () => {
 
       {/* ROW 3: New by Source + Team Assignments */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* New Deals by Source */}
+        {/* New Opportunities by Source */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
-              New Deals by Source
+              New Opportunities by Source
             </h3>
             <span className="text-xs text-gray-400">
               {loading
@@ -310,11 +310,11 @@ const ReMarketingDashboard = () => {
         </div>
       </div>
 
-      {/* ROW 4: Top Deals */}
+      {/* ROW 4: Top Opportunities */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
-            Top Deals Added
+            Top Opportunities Added
           </h3>
           <span className="text-xs text-gray-400">Highest scored in period</span>
         </div>
@@ -480,11 +480,11 @@ const ReMarketingDashboard = () => {
           )}
         </div>
 
-        {/* All Deals by Source */}
+        {/* All Opportunities by Source */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
-              Active Deals by Source
+              Active Opportunities by Source
             </h3>
             <span className="text-xs text-gray-400">{cards?.all_visible || 0} total</span>
           </div>

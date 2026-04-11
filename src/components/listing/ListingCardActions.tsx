@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bookmark, CheckCircle2, Clock, XCircle, Send, Eye, AlertCircle, ShieldX, Shield } from "lucide-react";
 import ConnectionRequestDialog from "@/components/connection/ConnectionRequestDialog";
-import { AgreementSigningModal } from "@/components/pandadoc/AgreementSigningModal";
+import { AgreementSigningModal } from "@/components/agreements/AgreementSigningModal";
 
 interface ListingCardActionsProps {
   viewType: "grid" | "list";

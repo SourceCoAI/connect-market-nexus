@@ -274,7 +274,7 @@ const AdminDashboard = () => {
                   {[
                     { value: 'analytics', label: 'Analytics' },
                     { value: 'overview', label: 'Overview' },
-                    { value: 'my-deals', label: 'My Deals' },
+                    { value: 'my-deals', label: 'My Pipeline' },
                     { value: 'listings', label: 'Listings' },
                     { value: 'management', label: 'Users' },
                     { value: 'activity', label: 'Activity' },

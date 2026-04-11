@@ -705,10 +705,6 @@ function App() {
                 element={<Navigate to="/admin/testing?tab=system" replace />}
               />
               <Route
-                path="pandadoc-health"
-                element={<Navigate to="/admin/testing?tab=pandadoc" replace />}
-              />
-              <Route
                 path="listings"
                 element={<Navigate to="/admin/deals?tab=marketplace" replace />}
               />

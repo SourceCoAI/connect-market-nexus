@@ -15,7 +15,7 @@
  *   (/admin/requests)
  */
 import { useState } from 'react';
-import { SendAgreementDialog } from '@/components/pandadoc/SendAgreementDialog';
+import { SendAgreementDialog } from '@/components/agreements/SendAgreementDialog';
 import { ConnectionRequestEmailDialog } from '@/components/admin/ConnectionRequestEmailDialog';
 import { Listing } from '@/types';
 import { AdminConnectionRequest } from '@/types/admin';

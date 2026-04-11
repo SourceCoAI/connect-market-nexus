@@ -7,7 +7,7 @@ import { selfHealFirm } from '../_shared/firm-self-heal.ts';
 /**
  * get-agreement-document
  *
- * Returns the PDF URL for an agreement document (draft or signed).
+ * Returns the status for an agreement document (NDA or fee agreement).
  * Uses deterministic firm resolution via resolve_user_firm_id RPC.
  */
 
@@ -70,13 +70,12 @@ serve(async (req: Request) => {
       }
     }
 
-    // Get document ID and signed status — use canonical nda_status / fee_agreement_status
-    const documentCol = isNda ? 'nda_pandadoc_document_id' : 'fee_pandadoc_document_id';
+    // Get agreement status from firm_agreements
     const statusCol = isNda ? 'nda_status' : 'fee_agreement_status';
 
     const { data: firm } = await supabaseAdmin
       .from('firm_agreements')
-      .select(`${documentCol}, ${statusCol}`)
+      .select(statusCol)
       .eq('id', resolvedFirmId)
       .single();
 
@@ -90,63 +89,11 @@ serve(async (req: Request) => {
     const firmRecord = firm as Record<string, unknown>;
     const isSigned = firmRecord[statusCol] === 'signed';
 
-    // Always fetch fresh from PandaDoc — cached PDF URLs can expire
-    const documentId = firmRecord[documentCol];
-    if (!documentId) {
-      return new Response(
-        JSON.stringify({ error: 'No document exists for this agreement' }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
-    // Fetch document from PandaDoc API
-    const pandadocApiKey = Deno.env.get('PANDADOC_API_KEY');
-    if (!pandadocApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'PandaDoc not configured' }),
-        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
-    const fetchController = new AbortController();
-    const fetchTimeout = setTimeout(() => fetchController.abort(), 15000);
-    let docRes: Response;
-    try {
-      docRes = await fetch(
-        `https://api.pandadoc.com/public/v1/documents/${documentId}/download`,
-        {
-          headers: { 'Authorization': `API-Key ${pandadocApiKey}` },
-          signal: fetchController.signal,
-        },
-      );
-    } finally {
-      clearTimeout(fetchTimeout);
-    }
-
-    if (!docRes.ok) {
-      const errText = await docRes.text();
-      console.error('PandaDoc download API error:', docRes.status, errText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch document' }),
-        { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
-    // PandaDoc download returns the PDF directly; use the redirect URL as the document URL
-    const docUrl = docRes.url || `https://api.pandadoc.com/public/v1/documents/${documentId}/download`;
-
-    if (!docUrl) {
-      return new Response(
-        JSON.stringify({ error: 'Document not available' }),
-        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-      );
-    }
-
     return new Response(
       JSON.stringify({
-        documentUrl: docUrl,
         documentName: isNda ? 'NDA' : 'Fee Agreement',
         isSigned,
+        status: firmRecord[statusCol] || 'not_started',
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { CheckCircle, Download, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { AgreementSigningModal } from '@/components/pandadoc/AgreementSigningModal';
+import { AgreementSigningModal } from '@/components/agreements/AgreementSigningModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { resolveAgreementStatus, type AgreementDisplayStatus } from '@/lib/agreement-status';
 
