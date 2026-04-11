@@ -142,6 +142,26 @@ export const NonMarketplaceUsersTable = ({
         if (user.firm_id !== filters.firmFilter) return false;
       }
 
+      if (filters.phoneFilter && filters.phoneFilter !== 'all') {
+        const hasMobile = !!(user.mobile_phone_1 || user.mobile_phone_2 || user.mobile_phone_3);
+        const hasOffice = !!user.office_phone;
+        const hasAnyPhone = hasMobile || hasOffice || !!user.phone;
+        switch (filters.phoneFilter) {
+          case 'needs_mobile':
+            if (hasMobile) return false;
+            break;
+          case 'has_mobile':
+            if (!hasMobile) return false;
+            break;
+          case 'office_only':
+            if (hasMobile || !hasOffice) return false;
+            break;
+          case 'no_phone':
+            if (hasAnyPhone) return false;
+            break;
+        }
+      }
+
       return true;
     });
   }, [users, filters]);

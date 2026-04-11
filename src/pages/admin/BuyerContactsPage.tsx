@@ -19,9 +19,11 @@ import {
   Mail,
   TrendingUp,
   ListChecks,
+  Phone,
 } from 'lucide-react';
 import { NonMarketplaceUsersTable } from '@/components/admin/NonMarketplaceUsersTable';
 import { BulkContactActions } from '@/components/admin/non-marketplace/BulkContactActions';
+import { ContactCSVImport } from '@/components/admin/ContactCSVImport';
 import { useNonMarketplaceUsers } from '@/hooks/admin/use-non-marketplace-users';
 import type { NonMarketplaceUserFilters } from '@/types/non-marketplace-user';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
@@ -77,6 +79,21 @@ const BuyerContactsPage = () => {
     },
     [setSearchParams],
   );
+  const phoneFilter = searchParams.get('phone_status') ?? 'all';
+  const setPhoneFilter = useCallback(
+    (v: string) => {
+      setSearchParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          if (v !== 'all') n.set('phone_status', v);
+          else n.delete('phone_status');
+          return n;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -107,8 +124,9 @@ const BuyerContactsPage = () => {
       searchQuery,
       sourceFilter: sourceFilter as NonMarketplaceUserFilters['sourceFilter'],
       agreementFilter: agreementFilter as NonMarketplaceUserFilters['agreementFilter'],
+      phoneFilter: phoneFilter as NonMarketplaceUserFilters['phoneFilter'],
     }),
-    [searchQuery, sourceFilter, agreementFilter],
+    [searchQuery, sourceFilter, agreementFilter, phoneFilter],
   );
 
   // Compute filtered users for stats (same logic as table)
@@ -143,6 +161,25 @@ const BuyerContactsPage = () => {
             break;
           case 'none_signed':
             if (ndaSigned || feeSigned) return false;
+            break;
+        }
+      }
+      if (filters.phoneFilter && filters.phoneFilter !== 'all') {
+        const hasMobile = !!(user.mobile_phone_1 || user.mobile_phone_2 || user.mobile_phone_3);
+        const hasOffice = !!user.office_phone;
+        const hasAnyPhone = hasMobile || hasOffice || !!user.phone;
+        switch (filters.phoneFilter) {
+          case 'needs_mobile':
+            if (hasMobile) return false;
+            break;
+          case 'has_mobile':
+            if (!hasMobile) return false;
+            break;
+          case 'office_only':
+            if (hasMobile || !hasOffice) return false;
+            break;
+          case 'no_phone':
+            if (hasAnyPhone) return false;
             break;
         }
       }
@@ -211,6 +248,7 @@ const BuyerContactsPage = () => {
                   <TrendingUp className="h-3 w-3" />
                   {stats.recentCount} new this month
                 </Badge>
+                <ContactCSVImport />
                 <Link to="/admin/lists">
                   <Button variant="outline" size="sm" className="gap-1.5">
                     <ListChecks className="h-3.5 w-3.5" />
@@ -268,6 +306,18 @@ const BuyerContactsPage = () => {
               <SelectItem value="fee_signed">Fee Agmt Signed</SelectItem>
               <SelectItem value="both_signed">Both Signed</SelectItem>
               <SelectItem value="none_signed">None Signed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={phoneFilter} onValueChange={setPhoneFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Phone Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Phone Status</SelectItem>
+              <SelectItem value="needs_mobile">Needs Mobile Phone</SelectItem>
+              <SelectItem value="has_mobile">Has Mobile Phone</SelectItem>
+              <SelectItem value="office_only">Office Phone Only</SelectItem>
+              <SelectItem value="no_phone">No Phone At All</SelectItem>
             </SelectContent>
           </Select>
         </div>

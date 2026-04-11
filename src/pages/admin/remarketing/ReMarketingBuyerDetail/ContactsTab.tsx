@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Trash2, Users, Mail, Linkedin, Sparkles, Loader2, Pencil, Building2 } from 'lucide-react';
+import { Plus, Trash2, Users, Mail, Linkedin, Sparkles, Loader2, Pencil, Building2, PhoneCall } from 'lucide-react';
 import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Contact } from './types';
 
@@ -20,6 +20,8 @@ interface ContactsTabProps {
   onDeleteContact: (contactId: string) => void;
   onEnrichContacts?: () => void;
   isEnrichingContacts?: boolean;
+  onRetryPhoneEnrichment?: () => void;
+  isRetryingPhoneEnrichment?: boolean;
 }
 
 export const ContactsTab = ({
@@ -29,7 +31,12 @@ export const ContactsTab = ({
   onDeleteContact,
   onEnrichContacts,
   isEnrichingContacts,
+  onRetryPhoneEnrichment,
+  isRetryingPhoneEnrichment,
 }: ContactsTabProps) => {
+  const contactsNeedingPhone = contacts.filter(
+    (c) => !c.mobile_phone_1 && !c.phone,
+  ).length;
   return (
     <Card>
       <CardHeader>
@@ -39,6 +46,23 @@ export const ContactsTab = ({
             <CardDescription>Key contacts at this organization</CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            {onRetryPhoneEnrichment && contactsNeedingPhone > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onRetryPhoneEnrichment}
+                disabled={isRetryingPhoneEnrichment}
+              >
+                {isRetryingPhoneEnrichment ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <PhoneCall className="mr-2 h-4 w-4" />
+                )}
+                {isRetryingPhoneEnrichment
+                  ? 'Enriching phones...'
+                  : `Retry Phones (${contactsNeedingPhone})`}
+              </Button>
+            )}
             {onEnrichContacts && (
               <Button
                 size="sm"

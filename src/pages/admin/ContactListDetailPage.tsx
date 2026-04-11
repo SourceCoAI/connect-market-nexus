@@ -30,9 +30,13 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useContactList, useRemoveListMember } from '@/hooks/admin/use-contact-lists';
+import { useMutation } from '@tanstack/react-query';
+import { invokeWithTimeout } from '@/lib/invoke-with-timeout';
+import { toast } from 'sonner';
 import { PushToDialerModal } from '@/components/remarketing/PushToDialerModal';
 import { PushToSmartleadModal } from '@/components/remarketing/PushToSmartleadModal';
 import { PushToHeyreachModal } from '@/components/remarketing/PushToHeyreachModal';
+import { ContactCSVImport } from '@/components/admin/ContactCSVImport';
 import type { ContactListMember } from '@/types/contact-list';
 import { useAICommandCenterContext } from '@/components/ai-command-center/AICommandCenterProvider';
 import { useAIUIActionHandler } from '@/hooks/useAIUIActionHandler';
@@ -44,6 +48,24 @@ const ContactListDetailPage = () => {
   const navigate = useNavigate();
   const { data: list, isLoading } = useContactList(id);
   const removeMember = useRemoveListMember();
+
+  const retryPhoneEnrichment = useMutation({
+    mutationFn: async (contactIds: string[]) => {
+      const { data, error } = await invokeWithTimeout<{
+        results: Array<{ contact_id: string; phone: string | null }>;
+      }>('enrich-list-contacts', {
+        body: { contact_ids: contactIds },
+        timeoutMs: 120_000,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      const phonesFound = data?.results?.filter((r: { phone: string | null }) => r.phone).length || 0;
+      toast.success(`Phone enrichment complete: ${phonesFound} phone${phonesFound !== 1 ? 's' : ''} found`);
+    },
+    onError: (err: Error) => toast.error(`Phone enrichment failed: ${err.message}`),
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -240,6 +262,28 @@ const ContactListDetailPage = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={retryPhoneEnrichment.isPending}
+                onClick={() => {
+                  const needsPhone = activeMembers
+                    .filter((m) => !m.contact?.mobile_phone_1 && !m.contact_phone)
+                    .map((m) => m.contact_id)
+                    .filter(Boolean) as string[];
+                  if (needsPhone.length > 0) retryPhoneEnrichment.mutate(needsPhone);
+                  else toast.info('All members already have phone numbers');
+                }}
+              >
+                {retryPhoneEnrichment.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Phone className="h-3.5 w-3.5" />
+                )}
+                {retryPhoneEnrichment.isPending ? 'Enriching...' : 'Retry Phones'}
+              </Button>
+              <ContactCSVImport />
               <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-1.5">
                 <Download className="h-3.5 w-3.5" />
                 Export CSV

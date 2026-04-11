@@ -1130,7 +1130,7 @@ Deno.serve(async (req: Request) => {
 
   const companyName = body.company_name.trim();
   const titleFilter = body.title_filter || [];
-  const targetCount = body.target_count || 10;
+  const targetCount = body.target_count || 12;
   const errors: string[] = [];
 
   try {

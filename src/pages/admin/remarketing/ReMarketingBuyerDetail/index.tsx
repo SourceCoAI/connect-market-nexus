@@ -88,6 +88,7 @@ const ReMarketingBuyerDetail = () => {
     addTranscriptMutation,
     extractTranscriptMutation,
     deleteTranscriptMutation,
+    retryPhoneEnrichmentMutation,
     isContactDialogOpen,
     setIsContactDialogOpen,
     newContact,
@@ -460,6 +461,13 @@ const ReMarketingBuyerDetail = () => {
             onDeleteContact={(contactId) => deleteContactMutation.mutate(contactId)}
             onEnrichContacts={() => findContactsMutation.mutate()}
             isEnrichingContacts={findContactsMutation.isPending}
+            onRetryPhoneEnrichment={() => {
+              const needsPhone = contacts
+                .filter((c) => !c.mobile_phone_1 && !c.phone)
+                .map((c) => c.id);
+              if (needsPhone.length > 0) retryPhoneEnrichmentMutation.mutate(needsPhone);
+            }}
+            isRetryingPhoneEnrichment={retryPhoneEnrichmentMutation.isPending}
           />
         </TabsContent>
 

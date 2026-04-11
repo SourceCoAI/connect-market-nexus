@@ -51,4 +51,5 @@ export interface NonMarketplaceUserFilters {
   agreementFilter?: 'all' | 'nda_signed' | 'fee_signed' | 'both_signed' | 'none_signed';
   firmFilter?: string;
   hasProfileMatch?: boolean;
+  phoneFilter?: 'all' | 'needs_mobile' | 'has_mobile' | 'office_only' | 'no_phone';
 }

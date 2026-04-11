@@ -440,6 +440,32 @@ export function useBuyerMutations(
     },
   });
 
+  const retryPhoneEnrichmentMutation = useMutation({
+    mutationFn: async (contactIds: string[]) => {
+      if (contactIds.length === 0) throw new Error('No contacts need phone enrichment');
+
+      const { data, error } = await invokeWithTimeout<{
+        results: Array<{ contact_id: string; phone: string | null; source: string | null }>;
+      }>('enrich-list-contacts', {
+        body: { contact_ids: contactIds },
+        timeoutMs: 120_000,
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['remarketing', 'contacts', id] });
+      const phonesFound = data?.results?.filter((r: { phone: string | null }) => r.phone).length || 0;
+      toast.success(
+        `Phone enrichment complete: ${phonesFound} phone${phonesFound !== 1 ? 's' : ''} found`,
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(`Phone enrichment failed: ${error.message}`);
+    },
+  });
+
   return {
     enrichMutation,
     findContactsMutation,
@@ -452,6 +478,7 @@ export function useBuyerMutations(
     addTranscriptMutation,
     extractTranscriptMutation,
     deleteTranscriptMutation,
+    retryPhoneEnrichmentMutation,
     isContactDialogOpen,
     setIsContactDialogOpen,
     newContact,

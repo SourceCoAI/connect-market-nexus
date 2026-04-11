@@ -124,8 +124,8 @@ Deno.serve(async (req: Request) => {
   const isPE = PE_BUYER_TYPES.includes(body.buyer_type?.toLowerCase() || '');
   // Platform companies and other buyer types may still have a PE firm backing them — search it too
   const hasPEFirm = !!body.pe_firm_name?.trim();
-  const peTarget = 4;
-  const companyTarget = 3;
+  const peTarget = 6;
+  const companyTarget = 5;
   // Buyers with a PE firm name need both PE + company contacts; otherwise just company
   const totalTarget = hasPEFirm ? peTarget + companyTarget : companyTarget;
 
@@ -227,7 +227,7 @@ Deno.serve(async (req: Request) => {
           body: {
             company_name: body.pe_firm_name,
             title_filter: PE_TITLE_FILTER,
-            target_count: 6, // Ask for slightly more to allow for dedup losses and enrichment failures
+            target_count: 8, // Over-fetch to allow for dedup losses and enrichment failures
             company_domain: peDomain || undefined,
             company_type: 'pe_firm' as const,
           },
@@ -241,7 +241,7 @@ Deno.serve(async (req: Request) => {
       body: {
         company_name: body.company_name,
         title_filter: useCompanyPECascade ? PE_TITLE_FILTER : COMPANY_TITLE_FILTER,
-        target_count: 5, // Ask for slightly more to allow for dedup losses and enrichment failures
+        target_count: 7, // Over-fetch to allow for dedup losses and enrichment failures
         company_domain: companyDomain || undefined,
         company_type: useCompanyPECascade ? ('pe_firm' as const) : ('company' as const),
       },
