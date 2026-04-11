@@ -146,6 +146,11 @@ export function useConnectionRequestActions({
           })
           .catch((emailErr) => {
             console.error('[approval-email] Failed to send connection approval email:', emailErr);
+            toast({
+              title: 'Email delivery issue',
+              description: 'Approval was saved but the notification email may not have been sent.',
+              variant: 'destructive',
+            });
           });
       }
 
@@ -166,35 +171,50 @@ export function useConnectionRequestActions({
           });
       }
 
-      // Auto-provision data_room_access so buyer can see documents immediately
+      // Auto-provision data_room_access so buyer can see documents immediately.
+      // Check both listing.id and source_deal_id since documents may be stored
+      // against either ID depending on how the listing was created.
       if (listing?.id && user.id) {
-        const { data: existingAccess } = await supabase
-          .from('data_room_access')
-          .select('id')
-          .eq('deal_id', listing.id)
-          .eq('marketplace_user_id', user.id)
-          .is('revoked_at', null)
-          .maybeSingle();
+        const dealIds = [listing.id];
 
-        if (!existingAccess) {
-          // Reuse buyerHasFee from earlier check (already queried fresh from DB)
-          const { error: accessErr } = await supabase
+        // Some listings link to a source deal for documents
+        const sourceDealId = (listing as unknown as Record<string, unknown>).source_deal_id as string | null;
+        if (sourceDealId && sourceDealId !== listing.id) {
+          dealIds.push(sourceDealId);
+        }
+
+        for (const dealId of dealIds) {
+          const { data: existingAccess } = await supabase
             .from('data_room_access')
-            .insert({
-              deal_id: listing.id,
-              marketplace_user_id: user.id,
-              can_view_teaser: true,
-              can_view_full_memo: buyerHasFee,
-              can_view_data_room: buyerHasFee,
-            });
+            .select('id')
+            .eq('deal_id', dealId)
+            .eq('marketplace_user_id', user.id)
+            .is('revoked_at', null)
+            .maybeSingle();
 
-          if (accessErr) {
-            console.error('[data-room-access] Failed to auto-provision access:', accessErr);
-          } else {
-            // Invalidate access queries so admin UI reflects the new record
-            queryClient.invalidateQueries({ queryKey: ['buyer-access', listing.id, user.id] });
-            queryClient.invalidateQueries({ queryKey: ['data-room-access', listing.id] });
+          if (!existingAccess) {
+            const { error: accessErr } = await supabase
+              .from('data_room_access')
+              .insert({
+                deal_id: dealId,
+                marketplace_user_id: user.id,
+                can_view_teaser: true,
+                can_view_full_memo: buyerHasFee,
+                can_view_data_room: buyerHasFee,
+              });
+
+            if (accessErr) {
+              console.error('[data-room-access] Failed to auto-provision access for deal', dealId, accessErr);
+            }
           }
+        }
+
+        // Invalidate access queries so admin UI reflects the new records
+        queryClient.invalidateQueries({ queryKey: ['buyer-access', listing.id, user.id] });
+        queryClient.invalidateQueries({ queryKey: ['data-room-access', listing.id] });
+        if (sourceDealId) {
+          queryClient.invalidateQueries({ queryKey: ['buyer-access', sourceDealId, user.id] });
+          queryClient.invalidateQueries({ queryKey: ['data-room-access', sourceDealId] });
         }
       }
 
@@ -251,6 +271,11 @@ export function useConnectionRequestActions({
           })
           .catch((emailErr) => {
             console.error('[rejection-email] Failed to send rejection email:', emailErr);
+            toast({
+              title: 'Email delivery issue',
+              description: 'Rejection was saved but the notification email may not have been sent.',
+              variant: 'destructive',
+            });
           });
       }
 

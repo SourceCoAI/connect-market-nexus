@@ -22,6 +22,7 @@ import { ApprovalSection } from './connection-request-actions/ApprovalSection';
 import { FlagReviewBanner, FlagReviewPopover } from './connection-request-actions/FlagReviewSection';
 import { useUpdateConnectionRequestStatus } from '@/hooks/admin/use-connection-request-status';
 import { useFlagConnectionRequest } from '@/hooks/admin/use-flag-connection-request';
+import { useSendMessage } from '@/hooks/use-connection-messages';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { AdminProfile } from './connection-request-actions/types';
@@ -43,6 +44,7 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
   const requestStatus = (request.status === 'converted' ? 'approved' : request.status === 'notified' || request.status === 'reviewed' ? 'pending' : request.status) as 'pending' | 'approved' | 'rejected' | 'on_hold';
   const updateStatus = useUpdateConnectionRequestStatus();
   const flagMutation = useFlagConnectionRequest();
+  const sendMessage = useSendMessage();
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
   const [flagPopoverOpen, setFlagPopoverOpen] = useState(false);
@@ -87,6 +89,15 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
         return; // Don't send email if status update failed
       }
 
+      // Record decision in message thread for audit trail
+      const listingName = request.listing?.title || 'this deal';
+      sendMessage.mutateAsync({
+        connection_request_id: request.id,
+        body: `Request for ${listingName} has been approved.`,
+        sender_role: 'admin',
+        message_type: 'decision',
+      }).catch((err) => console.error('[webflow-approve] Decision message failed:', err));
+
       // Send approval email
       const buyerEmail = request.lead_email || request.user?.email;
       const buyerName = request.lead_name || (request.user ? `${request.user.first_name || ''} ${request.user.last_name || ''}`.trim() : '');
@@ -121,6 +132,14 @@ export function WebflowLeadDetail({ request }: WebflowLeadDetailProps) {
         console.error('[webflow-reject] Status update failed:', err);
         return; // Don't send email if status update failed
       }
+
+      // Record decision in message thread for audit trail
+      sendMessage.mutateAsync({
+        connection_request_id: request.id,
+        body: comment || rejectNote || 'Request declined.',
+        sender_role: 'admin',
+        message_type: 'decision',
+      }).catch((err) => console.error('[webflow-reject] Decision message failed:', err));
 
       // Send rejection email
       const buyerEmail = request.lead_email || request.user?.email;

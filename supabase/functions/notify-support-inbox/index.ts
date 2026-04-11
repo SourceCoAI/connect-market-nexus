@@ -8,6 +8,7 @@
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { sendEmail, SUPPORT_REPLY_TO, NOREPLY_SENDER_EMAIL, NOREPLY_SENDER_NAME } from '../_shared/email-sender.ts';
 import { wrapEmailHtml } from '../_shared/email-template-wrapper.ts';
+import { escapeHtml } from '../_shared/auth.ts';
 
 
 const SUPPORT_EMAIL = 'support@sourcecodeals.com';
@@ -126,11 +127,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
