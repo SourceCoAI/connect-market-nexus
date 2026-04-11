@@ -57,6 +57,11 @@ export interface Contact {
   role: string | null; // mapped from title
   linkedin_url: string | null;
   is_primary: boolean | null; // mapped from is_primary_at_firm
+  mobile_phone_1: string | null;
+  mobile_phone_2: string | null;
+  mobile_phone_3: string | null;
+  office_phone: string | null;
+  phone_source: string | null;
 }
 
 export interface Transcript {

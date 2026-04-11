@@ -77,7 +77,7 @@ export function useContactList(listId: string | undefined) {
 
       const { data: members, error: membersError } = await supabase
         .from('contact_list_members')
-        .select('*, contact:contacts(first_name, last_name, email, phone, title, company_name)')
+        .select('*, contact:contacts(first_name, last_name, email, phone, title, company_name, linkedin_url, mobile_phone_1, mobile_phone_2, mobile_phone_3, office_phone)')
         .eq('list_id', listId!)
         .is('removed_at', null)
         .order('added_at', { ascending: false });

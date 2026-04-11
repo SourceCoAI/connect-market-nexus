@@ -121,6 +121,11 @@ const ContactListDetailPage = () => {
     const headers = [
       'Name',
       'Email',
+      'LinkedIn URL',
+      'Mobile Phone 1',
+      'Mobile Phone 2',
+      'Mobile Phone 3',
+      'Office Phone',
       'Phone',
       'Company',
       'Role',
@@ -133,6 +138,11 @@ const ContactListDetailPage = () => {
     const rows = members.map((m) => [
       m.contact_name || '',
       m.contact_email,
+      m.contact?.linkedin_url || '',
+      m.contact?.mobile_phone_1 || '',
+      m.contact?.mobile_phone_2 || '',
+      m.contact?.mobile_phone_3 || '',
+      m.contact?.office_phone || '',
       m.contact_phone || '',
       m.contact_company || '',
       m.contact_role || '',

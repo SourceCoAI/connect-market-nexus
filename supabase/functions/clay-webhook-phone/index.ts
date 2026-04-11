@@ -103,6 +103,7 @@ serve(async (req: Request) => {
     }
 
     // 7. If phone found, save to contacts via RPC
+    //    Clay's waterfall enrichment returns mobile/cell numbers, so route to mobile_phone_1.
     if (resultPhone) {
       const fullName = `${request.first_name || ''} ${request.last_name || ''}`.trim();
 
@@ -115,6 +116,8 @@ serve(async (req: Request) => {
           last_name: request.last_name || '',
           title: request.title || null,
           phone: resultPhone,
+          mobile_phone_1: resultPhone,
+          phone_source: 'clay',
           linkedin_url: request.linkedin_url || null,
           contact_type: 'buyer',
         },
@@ -158,7 +161,7 @@ serve(async (req: Request) => {
           // Default: update contacts table via RPC
           const { error: contactUpdateErr } = await supabase.rpc('contacts_upsert', {
             p_identity: { linkedin_url: request.linkedin_url || null },
-            p_fields: { phone: resultPhone },
+            p_fields: { phone: resultPhone, mobile_phone_1: resultPhone, phone_source: 'clay' },
             p_source: 'clay_phone',
             p_enrichment: { provider: 'clay_phone', confidence: 'high', source_query: `clay_phone:${request.linkedin_url}` },
           });

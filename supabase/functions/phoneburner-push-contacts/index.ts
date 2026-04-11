@@ -15,6 +15,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, corsPreflightResponse } from '../_shared/cors.ts';
+import { normalizePhone as normalizePhoneUtil, collectPhones, pickDialerPhones } from '../_shared/phone-utils.ts';
 
 const PB_API_BASE = 'https://www.phoneburner.com/rest/1';
 
@@ -47,6 +48,10 @@ interface ResolvedContact {
   id: string;
   name: string;
   phone: string | null;
+  mobile_phone_1: string | null;
+  mobile_phone_2: string | null;
+  mobile_phone_3: string | null;
+  office_phone: string | null;
   email: string | null;
   title: string | null;
   company: string | null;
@@ -120,13 +125,6 @@ function buildDealCustomFields(deal: ListingDealData): PbCustomField[] {
   return fields;
 }
 
-function normalizePhone(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return null;
-  return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
-}
-
 async function getValidToken(
   supabase: ReturnType<typeof createClient>,
   userId: string,
@@ -150,7 +148,7 @@ async function resolveFromBuyerContacts(
   const { data: contacts } = await supabase
     .from('contacts')
     .select(
-      'id, first_name, last_name, email, phone, title, remarketing_buyer_id, listing_id, updated_at',
+      'id, first_name, last_name, email, phone, mobile_phone_1, mobile_phone_2, mobile_phone_3, office_phone, title, remarketing_buyer_id, listing_id, updated_at',
     )
     .in('id', ids)
     .eq('archived', false);
@@ -189,6 +187,10 @@ async function resolveFromBuyerContacts(
       first_name: string | null;
       last_name: string | null;
       phone: string | null;
+      mobile_phone_1: string | null;
+      mobile_phone_2: string | null;
+      mobile_phone_3: string | null;
+      office_phone: string | null;
       email: string | null;
       title: string | null;
       remarketing_buyer_id: string | null;
@@ -226,6 +228,10 @@ async function resolveFromBuyerContacts(
         id: c.id,
         name: [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unknown',
         phone: c.phone,
+        mobile_phone_1: c.mobile_phone_1,
+        mobile_phone_2: c.mobile_phone_2,
+        mobile_phone_3: c.mobile_phone_3,
+        office_phone: c.office_phone,
         email: c.email,
         title: c.title,
         company: buyer?.company_name || null,
@@ -248,7 +254,7 @@ async function resolveFromBuyers(
   const { data: allContacts } = await supabase
     .from('contacts')
     .select(
-      'id, first_name, last_name, email, phone, title, remarketing_buyer_id, listing_id, is_primary_at_firm, updated_at',
+      'id, first_name, last_name, email, phone, mobile_phone_1, mobile_phone_2, mobile_phone_3, office_phone, title, remarketing_buyer_id, listing_id, is_primary_at_firm, updated_at',
     )
     .in('remarketing_buyer_id', buyerIds)
     .eq('archived', false);
@@ -286,6 +292,10 @@ async function resolveFromBuyers(
     last_name: string | null;
     email: string | null;
     phone: string | null;
+    mobile_phone_1: string | null;
+    mobile_phone_2: string | null;
+    mobile_phone_3: string | null;
+    office_phone: string | null;
     title: string | null;
     remarketing_buyer_id: string | null;
     listing_id: string | null;
@@ -329,6 +339,10 @@ async function resolveFromBuyers(
       id: c.id,
       name: [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unknown',
       phone: c.phone,
+      mobile_phone_1: c.mobile_phone_1,
+      mobile_phone_2: c.mobile_phone_2,
+      mobile_phone_3: c.mobile_phone_3,
+      office_phone: c.office_phone,
       email: c.email,
       title: c.title,
       company: buyer?.company_name || null,
@@ -352,6 +366,10 @@ async function resolveFromBuyers(
       id: `buyer-${buyerId}`,
       name: buyer.contact_name,
       phone: buyer.contact_phone || null,
+      mobile_phone_1: null,
+      mobile_phone_2: null,
+      mobile_phone_3: null,
+      office_phone: null,
       email: buyer.contact_email || null,
       title: null,
       company: buyer.company_name || buyer.pe_firm_name || null,
@@ -407,6 +425,10 @@ async function resolveFromListings(
           id: `listing-${l.id}`,
           name: l.main_contact_name!,
           phone: l.main_contact_phone || null,
+          mobile_phone_1: null,
+          mobile_phone_2: null,
+          mobile_phone_3: null,
+          office_phone: null,
           email: l.main_contact_email || null,
           title: l.main_contact_title || null,
           company: l.internal_company_name || l.title || null,
@@ -444,6 +466,10 @@ async function resolveFromLeads(
       id: `lead-${l.id}`,
       name: l.name || l.email || 'Unknown',
       phone: l.phone_number || null,
+      mobile_phone_1: null,
+      mobile_phone_2: null,
+      mobile_phone_3: null,
+      office_phone: null,
       email: l.email || null,
       title: l.role || null,
       company: l.company_name || null,
@@ -518,6 +544,10 @@ async function resolveFromContactListMembers(
         id: m.id,
         name: m.contact_name || 'Unknown',
         phone: m.contact_phone,
+        mobile_phone_1: null,
+        mobile_phone_2: null,
+        mobile_phone_3: null,
+        office_phone: null,
         email: m.contact_email,
         title: m.contact_role,
         company: m.contact_company,
@@ -607,6 +637,10 @@ Deno.serve(async (req: Request) => {
       id: `inline-${i}`,
       name: c.name || 'Unknown',
       phone: c.phone || null,
+      mobile_phone_1: null,
+      mobile_phone_2: null,
+      mobile_phone_3: null,
+      office_phone: null,
       email: c.email || null,
       title: null,
       company: c.company || null,
@@ -655,18 +689,27 @@ Deno.serve(async (req: Request) => {
   }
 
   // Filter: skip recently contacted + no phone
+  // New logic: exclude only if ALL mobile phones are null (office_phone alone is
+  // included but flagged as "office line only")
   const skipCutoff = new Date(Date.now() - skip_recent_days * 24 * 60 * 60 * 1000);
   const eligible: ResolvedContact[] = [];
   const excluded: { name: string; reason: string }[] = [];
 
   for (const contact of contacts) {
-    if (!contact.phone) {
+    const hasMobile = contact.mobile_phone_1 || contact.mobile_phone_2 || contact.mobile_phone_3;
+    const hasAnyPhone = hasMobile || contact.office_phone || contact.phone;
+
+    if (!hasAnyPhone) {
       excluded.push({ name: contact.name, reason: 'No phone number' });
       continue;
     }
     if (contact.last_contacted_date && new Date(contact.last_contacted_date) > skipCutoff) {
       excluded.push({ name: contact.name, reason: `Contacted within ${skip_recent_days} days` });
       continue;
+    }
+    if (!hasMobile && contact.office_phone) {
+      // Include but flag — office line only may not connect directly
+      excluded.push({ name: contact.name, reason: 'Office line only — may not connect directly' });
     }
     eligible.push(contact);
   }
@@ -685,15 +728,16 @@ Deno.serve(async (req: Request) => {
   }
 
   const sessionContacts = eligible.map((contact) => {
-    const primaryPhone = normalizePhone(contact.phone);
+    const [phone1, phone2, phone3] = pickDialerPhones(contact);
+    const allPhones = collectPhones(contact);
     return {
       source_id: contact.id,
       source_entity: contact.source_entity,
       name: contact.name,
-      phone: primaryPhone,
+      phone: normalizePhoneUtil(phone1),
       // Store all known phones to improve webhook matching when PhoneBurner
       // returns a different primary phone than the one we pushed.
-      phones: primaryPhone ? [primaryPhone] : [],
+      phones: allPhones,
       contact_email: contact.email?.toLowerCase() || null,
       contact_id: contact.contact_id || null,
       listing_id: contact.listing_id || null,
@@ -702,12 +746,16 @@ Deno.serve(async (req: Request) => {
   });
 
   // Build contacts array for PhoneBurner dial session
+  // PhoneBurner supports phone, phone2, phone3 — populate all three from structured fields
   const pbContacts = eligible.map((contact) => {
     const nameParts = contact.name.split(' ');
+    const [phone1, phone2, phone3] = pickDialerPhones(contact);
     const pbContact: Record<string, unknown> = {
       first_name: nameParts[0] || '',
       last_name: nameParts.slice(1).join(' ') || '',
-      phone: contact.phone,
+      phone: phone1 || contact.phone || '',
+      phone2: phone2 || '',
+      phone3: phone3 || '',
       email: contact.email || '',
       company: contact.company || '',
       title: contact.title || '',

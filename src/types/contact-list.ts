@@ -39,6 +39,11 @@ export interface ContactListMember {
     phone: string | null;
     title: string | null;
     company_name: string | null;
+    linkedin_url: string | null;
+    mobile_phone_1: string | null;
+    mobile_phone_2: string | null;
+    mobile_phone_3: string | null;
+    office_phone: string | null;
   } | null;
   // Joined deal owner fields
   deal_owner_name?: string | null;

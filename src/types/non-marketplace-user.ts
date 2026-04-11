@@ -5,6 +5,11 @@ export interface NonMarketplaceUser {
   company: string | null;
   role: string | null;
   phone: string | null;
+  linkedin_url: string | null;
+  mobile_phone_1: string | null;
+  mobile_phone_2: string | null;
+  mobile_phone_3: string | null;
+  office_phone: string | null;
   source: 'connection_request' | 'inbound_lead' | 'deal';
   sources: ('connection_request' | 'inbound_lead' | 'deal')[]; // all sources this contact came from
   source_id: string; // original record ID

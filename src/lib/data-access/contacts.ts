@@ -10,7 +10,7 @@ import { safeQuery, type DatabaseResult } from '@/lib/database';
 import type { ContactRecord } from './types';
 
 const CONTACT_SELECT =
-  'id, first_name, last_name, email, phone, linkedin_url, title, contact_type, firm_id, nda_signed, fee_agreement_signed, created_at';
+  'id, first_name, last_name, email, phone, linkedin_url, title, contact_type, firm_id, nda_signed, fee_agreement_signed, created_at, mobile_phone_1, mobile_phone_2, mobile_phone_3, office_phone, phone_source';
 
 /**
  * Fetch contacts by type (buyer/seller).

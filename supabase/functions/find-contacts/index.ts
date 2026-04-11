@@ -1510,6 +1510,12 @@ Deno.serve(async (req: Request) => {
     if (allContacts.length > 0) {
       let saveErrors = 0;
       for (const c of allContacts) {
+        // Route phone to mobile_phone_1 — enrichment providers (Blitz, Prospeo)
+        // prioritize mobile/direct numbers, so this is a safe default.
+        const phoneSource = c.source === 'blitz_enrichment' ? 'blitz'
+          : c.source === 'prospeo' ? 'prospeo'
+          : c.source || 'find_contacts';
+
         const { error: rpcErr } = await supabaseAdmin.rpc('contacts_upsert', {
           p_identity: {
             email: c.email || null,
@@ -1521,6 +1527,8 @@ Deno.serve(async (req: Request) => {
             title: c.title || null,
             email: c.email || null,
             phone: c.phone || null,
+            mobile_phone_1: c.phone || null,
+            phone_source: c.phone ? phoneSource : null,
             linkedin_url: c.linkedin_url || null,
             contact_type: 'buyer',
           },

@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Mail, Linkedin, Plus, Trash2 } from "lucide-react";
+import { Users, Mail, Linkedin, Plus, Trash2, Building2 } from "lucide-react";
 import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 
 interface ContactsTabProps {
@@ -22,6 +22,10 @@ interface ContactsTabProps {
     role: string | null;
     linkedin_url: string | null;
     is_primary: boolean | null;
+    mobile_phone_1: string | null;
+    mobile_phone_2: string | null;
+    mobile_phone_3: string | null;
+    office_phone: string | null;
   }>;
   onAddContact: () => void;
   onDeleteContact: (contactId: string) => void;
@@ -94,16 +98,38 @@ export const ContactsTab = ({
                       )}
                     </TableCell>
                     <TableCell>
-                      {contact.phone ? (
-                        <ClickToDialPhone
-                          phone={contact.phone}
-                          name={contact.name || undefined}
-                          email={contact.email || undefined}
-                          size="sm"
-                        />
-                      ) : (
-                        "\u2014"
-                      )}
+                      <div className="flex flex-col gap-0.5">
+                        {contact.mobile_phone_1 ? (
+                          <ClickToDialPhone
+                            phone={contact.mobile_phone_1}
+                            name={contact.name || undefined}
+                            email={contact.email || undefined}
+                            size="sm"
+                          />
+                        ) : contact.phone ? (
+                          <ClickToDialPhone
+                            phone={contact.phone}
+                            name={contact.name || undefined}
+                            email={contact.email || undefined}
+                            size="sm"
+                          />
+                        ) : null}
+                        {contact.mobile_phone_2 && (
+                          <ClickToDialPhone
+                            phone={contact.mobile_phone_2}
+                            name={contact.name || undefined}
+                            email={contact.email || undefined}
+                            size="sm"
+                          />
+                        )}
+                        {contact.office_phone && (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Building2 className="h-3 w-3" />
+                            {contact.office_phone}
+                          </span>
+                        )}
+                        {!contact.mobile_phone_1 && !contact.phone && !contact.office_phone && "\u2014"}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {contact.linkedin_url ? (

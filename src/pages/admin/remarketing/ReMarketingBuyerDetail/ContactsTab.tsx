@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Trash2, Users, Mail, Linkedin, Sparkles, Loader2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Users, Mail, Linkedin, Sparkles, Loader2, Pencil, Building2 } from 'lucide-react';
 import { ClickToDialPhone } from '@/components/shared/ClickToDialPhone';
 import { Contact } from './types';
 
@@ -105,16 +105,38 @@ export const ContactsTab = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    {contact.phone ? (
-                      <ClickToDialPhone
-                        phone={contact.phone}
-                        name={contact.name || undefined}
-                        email={contact.email || undefined}
-                        size="sm"
-                      />
-                    ) : (
-                      '\u2014'
-                    )}
+                    <div className="flex flex-col gap-0.5">
+                      {contact.mobile_phone_1 ? (
+                        <ClickToDialPhone
+                          phone={contact.mobile_phone_1}
+                          name={contact.name || undefined}
+                          email={contact.email || undefined}
+                          size="sm"
+                        />
+                      ) : contact.phone ? (
+                        <ClickToDialPhone
+                          phone={contact.phone}
+                          name={contact.name || undefined}
+                          email={contact.email || undefined}
+                          size="sm"
+                        />
+                      ) : null}
+                      {contact.mobile_phone_2 && (
+                        <ClickToDialPhone
+                          phone={contact.mobile_phone_2}
+                          name={contact.name || undefined}
+                          email={contact.email || undefined}
+                          size="sm"
+                        />
+                      )}
+                      {contact.office_phone && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Building2 className="h-3 w-3" />
+                          {contact.office_phone}
+                        </span>
+                      )}
+                      {!contact.mobile_phone_1 && !contact.phone && !contact.office_phone && '\u2014'}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {contact.linkedin_url ? (

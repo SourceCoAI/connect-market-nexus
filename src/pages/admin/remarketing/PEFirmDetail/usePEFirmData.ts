@@ -18,6 +18,10 @@ export const usePEFirmData = () => {
     role: '',
     linkedin_url: '',
     is_primary: false,
+    mobile_phone_1: '',
+    mobile_phone_2: '',
+    mobile_phone_3: '',
+    office_phone: '',
   });
   const [newPlatform, setNewPlatform] = useState({
     company_name: '',
@@ -224,13 +228,18 @@ export const usePEFirmData = () => {
         p_first_name: firstName,
         p_last_name: lastName,
         p_email: newContact.email || null,
-        p_phone: newContact.phone || null,
+        p_phone: newContact.mobile_phone_1 || newContact.phone || null,
         p_title: newContact.role || null,
         p_linkedin_url: newContact.linkedin_url || null,
         p_is_primary_at_firm: newContact.is_primary,
         p_remarketing_buyer_id: id!,
         p_firm_id: firm?.marketplace_firm_id ?? null,
         p_source: 'remarketing_manual',
+        p_mobile_phone_1: newContact.mobile_phone_1 || null,
+        p_mobile_phone_2: newContact.mobile_phone_2 || null,
+        p_mobile_phone_3: newContact.mobile_phone_3 || null,
+        p_office_phone: newContact.office_phone || null,
+        p_phone_source: 'manual',
       });
       if (error) throw error;
     },
@@ -245,6 +254,10 @@ export const usePEFirmData = () => {
         role: '',
         linkedin_url: '',
         is_primary: false,
+        mobile_phone_1: '',
+        mobile_phone_2: '',
+        mobile_phone_3: '',
+        office_phone: '',
       });
     },
     onError: () => {
