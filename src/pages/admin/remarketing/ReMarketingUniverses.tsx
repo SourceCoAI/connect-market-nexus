@@ -497,7 +497,7 @@ const ReMarketingUniverses = () => {
                     <TableHead className="w-[40px]">#</TableHead>
                     <TableHead>Buyer Universe</TableHead>
                     <TableHead className="min-w-[280px]">Description</TableHead>
-                    <TableHead>Deal Name</TableHead>
+                    <TableHead>Opportunity Name</TableHead>
                     <TableHead>State</TableHead>
                     <TableHead>Flagged At</TableHead>
                     <TableHead className="w-[150px]">Action</TableHead>

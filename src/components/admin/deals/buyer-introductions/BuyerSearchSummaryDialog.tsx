@@ -45,7 +45,7 @@ function categorizeError(msg: string): { title: string; icon: typeof Clock; sugg
   }
   if (lower.includes('missing') && lower.includes('field')) {
     return {
-      title: 'Deal Data Incomplete',
+      title: 'Opportunity Data Incomplete',
       icon: AlertTriangle,
       suggestion: msg,
     };

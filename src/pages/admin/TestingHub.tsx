@@ -309,11 +309,11 @@ export default function TestingHub() {
         } else if (r.status === 'warn') totalWarnings++;
       }
 
-      suitesCompleted = 3;
+      suitesCompleted = 2;
       if (trackingRunId) await tracking.updateProgress(trackingRunId, suitesCompleted);
       if (abortRef.current) throw new Error('aborted');
 
-      // --- Suite 4: Chatbot Scenarios (auto-runnable only) ---
+      // --- Suite 3: Chatbot Scenarios (auto-runnable only) ---
       const { getChatbotTestScenarios, runAutoChecks: runScenarioAutoChecks } =
         await import('./chatbot-test-runner/chatbotTestScenarios');
       const { sendAIQuery } = await import('./chatbot-test-runner/chatbotInfraTests');
@@ -412,11 +412,11 @@ export default function TestingHub() {
       }
 
       updateProgress('Chatbot Scenarios', autoRunnable.length, autoRunnable.length);
-      suitesCompleted = 4;
+      suitesCompleted = 3;
       if (trackingRunId) await tracking.updateProgress(trackingRunId, suitesCompleted);
       if (abortRef.current) throw new Error('aborted');
 
-      // --- Suite 5: 30-Question QA ---
+      // --- Suite 4: 30-Question QA ---
       const { THIRTY_Q_SUITE } = await import('./chatbot-test-runner/thirtyQuestionSuite');
 
       updateProgress('30-Question QA', 0, THIRTY_Q_SUITE.length);
@@ -504,7 +504,7 @@ export default function TestingHub() {
       }
 
       updateProgress('30-Question QA', THIRTY_Q_SUITE.length, THIRTY_Q_SUITE.length);
-      suitesCompleted = 5;
+      suitesCompleted = 4;
 
       // Complete the tracking run
       if (trackingRunId) {

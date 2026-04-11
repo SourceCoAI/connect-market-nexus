@@ -123,7 +123,7 @@ export function DealsTable({
           </TableHead>
           {(
             [
-              ['name', 'Deal Name', ''],
+              ['name', 'Opportunity Name', ''],
               ['website', 'Website', ''],
               ['industry', 'Industry', ''],
               ['location', 'Location', ''],

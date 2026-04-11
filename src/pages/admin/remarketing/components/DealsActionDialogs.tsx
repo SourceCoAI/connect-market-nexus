@@ -129,10 +129,10 @@ export const DealsActionDialogs = ({
     <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Archive {selectedDealsSize} Deal(s)?</AlertDialogTitle>
+          <AlertDialogTitle>Archive {selectedDealsSize} Opportunity(s)?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will move the selected deals to the archive. They will no longer appear in the
-            active deals list.
+            This will move the selected opportunities to the archive. They will no longer appear in the
+            active opportunities list.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -152,9 +152,9 @@ export const DealsActionDialogs = ({
     <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Permanently Delete {selectedDealsSize} Deal(s)?</AlertDialogTitle>
+          <AlertDialogTitle>Permanently Delete {selectedDealsSize} Opportunity(s)?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete the selected deals and all related data (transcripts,
+            This will permanently delete the selected opportunities and all related data (transcripts,
             scores, outreach records, etc.). This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -210,7 +210,7 @@ export const DealsActionDialogs = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5" />
-            Calculate Deal Scores
+            Calculate Opportunity Scores
           </DialogTitle>
           <DialogDescription>
             Choose how you want to calculate quality scores. Both options will trigger website
@@ -253,13 +253,13 @@ export const DealsActionDialogs = ({
       </DialogContent>
     </Dialog>
 
-    {/* Enrich Deals Dialog */}
+    {/* Enrich Opportunities Dialog */}
     <Dialog open={showEnrichDialog} onOpenChange={setShowEnrichDialog}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5" />
-            Enrich Deals
+            Enrich Opportunities
           </DialogTitle>
           <DialogDescription>
             Enrichment scrapes websites, extracts company data, and fetches LinkedIn & Google info.
