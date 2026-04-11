@@ -28,7 +28,7 @@ interface SeedBuyersParams {
   listingId: string;
   maxBuyers?: number;
   forceRefresh?: boolean;
-  buyerCategory?: 'sponsors' | 'operating_companies';
+  buyerCategory?: 'sponsors' | 'operating_companies' | 'all_types';
   /** Optional job ID for progress tracking */
   jobId?: string;
 }

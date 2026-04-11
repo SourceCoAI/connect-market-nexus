@@ -37,7 +37,7 @@ interface SeedRequest {
   listingId: string;
   maxBuyers?: number;
   forceRefresh?: boolean;
-  buyerCategory?: 'sponsors' | 'operating_companies';
+  buyerCategory?: 'sponsors' | 'operating_companies' | 'all_types';
   /** Optional job ID for progress tracking in buyer_search_jobs table */
   jobId?: string;
 }
@@ -279,6 +279,15 @@ BUYER TYPE FILTER: ONLY return PE-backed operating companies (platform companies
 - These are real businesses that operate in the same industry as the deal
 - They MUST have an identifiable PE sponsor (listed in pe_firm_name)
 - Do NOT include PE firms themselves — only the operating platforms they back
+`;
+  } else if (buyerCategory === 'all_types') {
+    categoryInstruction = `
+BUYER TYPE FILTER: Return the best-fit buyers across ALL buyer types:
+- PE-backed platform companies (primary — most likely to close, should be the majority of results)
+- Family offices with direct operating experience in this niche (buyer_type: "family_office")
+- Independent sponsors with deal flow in this vertical (buyer_type: "independent_sponsor")
+- Large strategic acquirers ($100M+ revenue) with an active M&A program (buyer_type: "corporate")
+For each buyer, specify buyer_type accurately. PE-backed platforms should still be the majority of results.
 `;
   }
 

@@ -2,7 +2,7 @@
 // Pure scoring logic extracted from score-deal-buyers for reuse across
 // the scoring pipeline (queue workers, batch re-scoring, tests, etc.).
 
-import { SECTOR_SYNONYMS, STATE_REGIONS, expandTerms } from './synonyms.ts';
+import { SECTOR_SYNONYMS, STATE_REGIONS, expandTerms, areSameFamily } from './synonyms.ts';
 import type { Tier } from './types.ts';
 
 // ---------------------------------------------------------------------------
@@ -88,12 +88,17 @@ export function scoreService(
 
   let bestMatch = 0;
   const exactMatches = new Set<string>();
+  const familyMatches = new Set<string>();
   const adjacentMatches = new Set<string>();
   for (const dt of dealTerms) {
     for (const bt of buyerTerms) {
       if (dt === bt) {
         bestMatch = 100;
         exactMatches.add(bt);
+      } else if (areSameFamily(dt, bt)) {
+        // Same-family match: services share a parent category (e.g. commercial HVAC / residential HVAC)
+        if (bestMatch < 80) bestMatch = 80;
+        familyMatches.add(bt);
       } else if (dt.length >= 4 && bt.length >= 4) {
         // Use word boundary matching to prevent false positives
         // e.g. "fire" should NOT match "fireplace", but "meter" should match "meter reading"
@@ -112,7 +117,10 @@ export function scoreService(
   const matchSignals: string[] = [];
   for (const m of exactMatches) matchSignals.push(`Exact industry match: ${m}`);
   if (bestMatch < 100) {
-    for (const m of adjacentMatches) matchSignals.push(`Adjacent industry: ${m}`);
+    for (const m of familyMatches) matchSignals.push(`Same-family industry: ${m}`);
+    if (bestMatch < 80) {
+      for (const m of adjacentMatches) matchSignals.push(`Adjacent industry: ${m}`);
+    }
   }
 
   return { score: bestMatch, signals: matchSignals };
@@ -293,21 +301,24 @@ export function scoreBonus(buyer: {
 // ---------------------------------------------------------------------------
 
 /**
- * Classify a buyer into a tier based on composite score and readiness signals.
+ * Classify a buyer into a tier based on composite score alone.
  *
- *  'move_now'    -- composite >= 80 AND (fee agreement OR aggressive appetite)
- *  'strong'      -- composite >= 60
+ * v4: Tier classification is purely fit-based. Bonus signals (fee agreement,
+ * appetite) are displayed as badges on the card but do not affect tier.
+ *
+ *  'move_now'    -- composite >= 85
+ *  'strong'      -- composite >= 65
  *  'speculative' -- everything else
  */
 export function classifyTier(
   compositeScore: number,
-  hasFeeAgreement: boolean,
-  appetite: string | null,
+  _hasFeeAgreement?: boolean,
+  _appetite?: string | null,
 ): Tier {
-  if (compositeScore >= 80 && (hasFeeAgreement || norm(appetite) === 'aggressive')) {
+  if (compositeScore >= 85) {
     return 'move_now';
   }
-  if (compositeScore >= 60) {
+  if (compositeScore >= 65) {
     return 'strong';
   }
   return 'speculative';

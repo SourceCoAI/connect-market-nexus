@@ -38,12 +38,16 @@ export interface BuyerScore {
   is_pe_backed?: boolean;
   /** Whether this buyer is publicly traded */
   is_publicly_traded?: boolean | null;
+  /** Summary of transcript-extracted insights (when available) */
+  transcript_summary?: string;
 }
 
 /** Inbound request shape for the score-deal-buyers edge function. */
 export interface ScoreRequest {
   listingId: string;
   forceRefresh?: boolean;
+  /** When provided, returns the full scoring breakdown for this specific buyer */
+  lookupBuyerId?: string;
 }
 
 /**
@@ -52,16 +56,20 @@ export interface ScoreRequest {
  * v3 — EBITDA size removed (unreliable for most buyers, inflated scores
  * for wrong-industry matches). Service fit is the dominant signal.
  *
+ * v4 — Bonus removed. Bonus signals (fee agreement, appetite, acquisitions)
+ * biased recommendations toward existing relationships rather than best-fit
+ * buyers. These signals are now display-only badges on the card.
+ *
  * H-1 FIX: These are now defaults that can be overridden by per-universe weights.
  *
  * Previous weights for reference:
  *   v1: service: 0.4, geography: 0.3, size: 0.2, bonus: 0.1
  *   v2: service: 0.6, geography: 0.15, size: 0.10, bonus: 0.15
+ *   v3: service: 0.7, geography: 0.15, bonus: 0.15
  */
 export const DEFAULT_SCORE_WEIGHTS = {
-  service: 0.7,
-  geography: 0.15,
-  bonus: 0.15,
+  service: 0.8,
+  geography: 0.2,
 } as const;
 
 /** @deprecated Use DEFAULT_SCORE_WEIGHTS and getScoreWeights() instead */
@@ -71,12 +79,14 @@ export const SCORE_WEIGHTS = DEFAULT_SCORE_WEIGHTS;
 export interface ScoreWeights {
   service: number;
   geography: number;
-  bonus: number;
 }
 
 /**
  * H-1 FIX: Build scoring weights from universe config, falling back to defaults.
  * Universe weights are stored as percentages (e.g., 45 for 45%), converted to decimals.
+ *
+ * v4: owner_goals_weight (bonus) is accepted for backwards compatibility but ignored.
+ * Only service and geography weights affect scoring.
  */
 export function getScoreWeights(
   universeWeights?: {
@@ -89,16 +99,14 @@ export function getScoreWeights(
 
   const svc = universeWeights.service_weight;
   const geo = universeWeights.geography_weight;
-  const bonus = universeWeights.owner_goals_weight;
 
-  // Only use universe weights if all are provided
-  if (svc != null && geo != null && bonus != null) {
-    const total = svc + geo + bonus;
+  // Only use universe weights if both are provided
+  if (svc != null && geo != null) {
+    const total = svc + geo;
     if (total > 0) {
       return {
         service: svc / total,
         geography: geo / total,
-        bonus: bonus / total,
       };
     }
   }

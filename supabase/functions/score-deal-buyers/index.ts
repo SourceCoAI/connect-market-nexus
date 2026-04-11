@@ -19,8 +19,8 @@ import {
   classifyTier,
 } from '../_shared/scoring/scorers.ts';
 
-const MAX_INTERNAL = 50;
-const MAX_EXTERNAL = 25;
+const MAX_INTERNAL = 100;
+const MAX_EXTERNAL = 50;
 const CACHE_HOURS = 4;
 
 // ── Main handler ──
@@ -57,7 +57,7 @@ Deno.serve(async (req: Request) => {
     // ── End auth guard ──
 
     const body: ScoreRequest = await req.json();
-    const { listingId, forceRefresh } = body;
+    const { listingId, forceRefresh, lookupBuyerId } = body;
 
     if (!listingId) {
       return new Response(JSON.stringify({ error: 'listingId is required' }), {
@@ -66,8 +66,46 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── Check cache (Issue #40: also verify universe context matches) ──
-    if (!forceRefresh) {
+    // ── Fetch deal (moved before cache check so we can compute content hash) ──
+    const { data: deal, error: dealError } = await supabase
+      .from('listings')
+      .select(
+        'id, title, industry, category, categories, ebitda, address_state, geographic_states,' +
+          'executive_summary, description, hero_description, investment_thesis,' +
+          'end_market_description, business_model, revenue_model, customer_types,' +
+          'owner_goals, seller_motivation, transition_preferences',
+      )
+      .eq('id', listingId)
+      .single();
+
+    if (dealError || !deal) {
+      return new Response(
+        JSON.stringify({ error: 'Deal not found', details: dealError?.message }),
+        { status: 404, headers: { ...headers, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Compute a content hash of scoring-relevant deal fields so the cache
+    // auto-invalidates when someone edits the deal's industry, categories, etc.
+    const contentHashInput = [
+      deal.industry || '',
+      deal.category || '',
+      JSON.stringify(deal.categories || []),
+      deal.address_state || '',
+      JSON.stringify(deal.geographic_states || []),
+      String(deal.ebitda || ''),
+    ].join('|');
+    let contentHash = 0;
+    for (let i = 0; i < contentHashInput.length; i++) {
+      contentHash = ((contentHash << 5) - contentHash + contentHashInput.charCodeAt(i)) | 0;
+    }
+    const contentHashStr = String(contentHash);
+
+    // ── Check cache (Issue #40: also verify universe context matches + content hash) ──
+    if (!forceRefresh && !lookupBuyerId) {
+      // Select known columns only; content_hash may not exist yet (requires migration).
+      // If the column exists, it'll be in the result; if not, the query still works
+      // with just the known columns and we skip hash-based invalidation.
       const { data: cached } = await supabase
         .from('buyer_recommendation_cache')
         .select('results, buyer_count, scored_at, universe_ids')
@@ -102,25 +140,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ── Fetch deal ──
-    const { data: deal, error: dealError } = await supabase
-      .from('listings')
-      .select(
-        'id, title, industry, category, categories, ebitda, address_state, geographic_states,' +
-          'executive_summary, description, hero_description, investment_thesis,' +
-          'end_market_description, business_model, revenue_model, customer_types,' +
-          'owner_goals, seller_motivation, transition_preferences',
-      )
-      .eq('id', listingId)
-      .single();
-
-    if (dealError || !deal) {
-      return new Response(
-        JSON.stringify({ error: 'Deal not found', details: dealError?.message }),
-        { status: 404, headers: { ...headers, 'Content-Type': 'application/json' } },
-      );
-    }
-
     // ── Fetch deal's universe(s) ──
     const { data: universeLinks } = await supabase
       .from('remarketing_universe_deals')
@@ -132,11 +151,12 @@ Deno.serve(async (req: Request) => {
 
     // H-1 FIX: Fetch universe-specific weights if the deal belongs to a universe.
     // If no universe weights are found, fall back to DEFAULT_SCORE_WEIGHTS.
+    // v4: owner_goals_weight is fetched for backwards compat but ignored by getScoreWeights.
     let weights: ScoreWeights = { ...SCORE_WEIGHTS };
     if (universeIds.length > 0) {
       const { data: universe } = await supabase
         .from('buyer_universes')
-        .select('service_weight, geography_weight, owner_goals_weight')
+        .select('service_weight, geography_weight')
         .eq('id', universeIds[0])
         .single();
 
@@ -263,6 +283,32 @@ Deno.serve(async (req: Request) => {
       .order('created_at', { ascending: false })
       .limit(2000);
 
+    // ── Fetch transcript-extracted insights for enriched scoring ──
+    // Batch-fetch the most recent extracted_insights for all buyers. This data
+    // supplements buyer profile fields (target_services, target_geographies) with
+    // what buyers actually said on calls — higher fidelity than profile data alone.
+    const allBuyerIds = buyers.map((b: { id: string }) => b.id);
+    // Fetch in batches of 500 to avoid Supabase query limits
+    const transcriptInsightsMap = new Map<string, Record<string, unknown>>();
+    for (let i = 0; i < allBuyerIds.length; i += 500) {
+      const batchIds = allBuyerIds.slice(i, i + 500);
+      const { data: transcriptRows } = await supabase
+        .from('buyer_transcripts')
+        .select('buyer_id, extracted_insights, call_date')
+        .in('buyer_id', batchIds)
+        .eq('extraction_status', 'completed')
+        .not('extracted_insights', 'is', null)
+        .order('call_date', { ascending: false });
+
+      for (const row of transcriptRows || []) {
+        // Keep only the most recent transcript per buyer
+        if (!transcriptInsightsMap.has(row.buyer_id)) {
+          transcriptInsightsMap.set(row.buyer_id, row.extracted_insights as Record<string, unknown>);
+        }
+      }
+    }
+    console.log(`[score-deal-buyers] Loaded transcript insights for ${transcriptInsightsMap.size} buyers`);
+
     // ── Fetch rejected buyers from discovery feedback ──
     const { data: rejectedRows } = await supabase
       .from('buyer_discovery_feedback')
@@ -346,12 +392,77 @@ Deno.serve(async (req: Request) => {
     const scored: BuyerScore[] = [];
 
     for (const buyer of filteredBuyers) {
-      const buyerServices = normArray(buyer.target_services);
+      let buyerServices = normArray(buyer.target_services);
       const buyerIndustries = normArray(buyer.target_industries);
       const buyerIndustryVertical = norm(buyer.industry_vertical);
-      const buyerGeos = normArray(buyer.target_geographies);
+      let buyerGeos = normArray(buyer.target_geographies);
       const buyerFootprint = normArray(buyer.geographic_footprint);
       const buyerHqState = norm(buyer.hq_state);
+
+      // ── Merge transcript-extracted insights into scoring inputs ──
+      // Transcript data is higher-fidelity than profile data because it captures
+      // what buyers actually said on calls about their acquisition criteria.
+      let transcriptSummary: string | undefined;
+      const insights = transcriptInsightsMap.get(buyer.id);
+      if (insights) {
+        const buyerCriteria = insights.buyer_criteria as Record<string, unknown> | undefined;
+        if (buyerCriteria) {
+          // Merge transcript services (if confidence >= 50)
+          const svcCriteria = buyerCriteria.service_criteria as {
+            target_services?: string[];
+            service_confidence?: number;
+          } | undefined;
+          if (svcCriteria?.target_services?.length && (svcCriteria.service_confidence ?? 0) >= 50) {
+            const transcriptServices = normArray(svcCriteria.target_services);
+            const mergedServices = new Set([...buyerServices, ...transcriptServices]);
+            buyerServices = [...mergedServices];
+          }
+
+          // Merge transcript geography (if confidence >= 50)
+          const geoCriteria = buyerCriteria.geography_criteria as {
+            target_states?: string[];
+            target_regions?: string[];
+            confidence?: number;
+          } | undefined;
+          if (geoCriteria?.confidence && geoCriteria.confidence >= 50) {
+            if (geoCriteria.target_states?.length) {
+              const transcriptGeos = normArray(geoCriteria.target_states);
+              const mergedGeos = new Set([...buyerGeos, ...transcriptGeos]);
+              buyerGeos = [...mergedGeos];
+            }
+          }
+
+          // Build transcript summary for display on the card
+          const summaryParts: string[] = [];
+          if (svcCriteria?.target_services?.length) {
+            summaryParts.push(`targets ${svcCriteria.target_services.slice(0, 3).join(', ')}`);
+          }
+          if (geoCriteria?.target_states?.length) {
+            summaryParts.push(`in ${geoCriteria.target_states.slice(0, 4).join(', ')}`);
+          }
+          const sizeCriteria = buyerCriteria.size_criteria as {
+            ebitda_min?: number;
+            ebitda_max?: number;
+          } | undefined;
+          if (sizeCriteria?.ebitda_min || sizeCriteria?.ebitda_max) {
+            const minStr = sizeCriteria.ebitda_min ? `$${(sizeCriteria.ebitda_min / 1_000_000).toFixed(1)}M` : '';
+            const maxStr = sizeCriteria.ebitda_max ? `$${(sizeCriteria.ebitda_max / 1_000_000).toFixed(1)}M` : '';
+            if (minStr && maxStr) summaryParts.push(`${minStr}-${maxStr} EBITDA`);
+            else if (minStr) summaryParts.push(`${minStr}+ EBITDA`);
+            else if (maxStr) summaryParts.push(`up to ${maxStr} EBITDA`);
+          }
+          if (summaryParts.length > 0) {
+            transcriptSummary = `Said they ${summaryParts.join(', ')}`;
+          }
+        }
+        // Fall back to buyer_profile thesis if no criteria
+        if (!transcriptSummary) {
+          const profile = insights.buyer_profile as { thesis_summary?: string } | undefined;
+          if (profile?.thesis_summary) {
+            transcriptSummary = profile.thesis_summary;
+          }
+        }
+      }
 
       // AI-seeded buyers get +20 service_score bonus from seed log why_relevant
       const seedLogReason = seedLogMap.get(buyer.id);
@@ -370,13 +481,13 @@ Deno.serve(async (req: Request) => {
       if (aiSeedBoost > 0) svc.signals.push(`AI-seeded +${AI_SEED_BONUS} (why_relevant)`);
 
       const geo = scoreGeography(dealState, dealGeoStates, buyerGeos, buyerFootprint, buyerHqState);
+      // Bonus signals are computed for display only — they no longer affect the composite score
       const bonus = scoreBonus(buyer);
 
-      // H-1 FIX: Use dynamic weights (universe-specific or defaults), v3: no EBITDA size
+      // v4: Composite = service + geography only. Bonus removed to focus on pure fit.
       const rawComposite = Math.round(
         svc.score * weights.service +
-          geo.score * weights.geography +
-          bonus.score * weights.bonus,
+          geo.score * weights.geography,
       );
 
       // Apply service fit gate multiplier — crushes composite for bad service fits
@@ -445,7 +556,7 @@ Deno.serve(async (req: Request) => {
           : buyer.hq_state || '';
       const matchingServiceTerms = svc.signals
         .map((s) => {
-          const m = s.match(/^(?:Exact industry match|Adjacent industry):\s*(.+)/i);
+          const m = s.match(/^(?:Exact industry match|Same-family industry|Adjacent industry):\s*(.+)/i);
           return m?.[1]?.trim() || null;
         })
         .filter(Boolean) as string[];
@@ -472,6 +583,16 @@ Deno.serve(async (req: Request) => {
             );
           } else {
             matchDetails.push(`directly targets ${dealIndustry || 'this industry'}`);
+          }
+        } else if (svc.score >= 80) {
+          if (matchingServiceTerms.length > 0) {
+            matchDetails.push(
+              `same-family fit via ${matchingServiceTerms.slice(0, 2).map(titleCase).join(', ')} to ${dealIndustry || 'this industry'}`,
+            );
+          } else {
+            matchDetails.push(
+              `same-family fit to ${dealIndustry || 'this industry'}${buyer.industry_vertical ? ` (${buyer.industry_vertical})` : ''}`,
+            );
           }
         } else if (svc.score >= 60) {
           if (matchingServiceTerms.length > 0) {
@@ -533,6 +654,8 @@ Deno.serve(async (req: Request) => {
             : buyer.hq_state || '';
         const parts: string[] = [];
         if (svc.score >= 100) parts.push(`targets ${dealIndustry || 'this'} industry directly`);
+        else if (svc.score >= 80)
+          parts.push(`operates in a related ${dealIndustry || 'industry'} vertical`);
         else if (svc.score >= 60)
           parts.push(`invests in adjacent ${dealIndustry || 'industry'} verticals`);
         if (geo.score >= 100)
@@ -568,6 +691,7 @@ Deno.serve(async (req: Request) => {
         buyer_type_priority: buyerTypePriority,
         is_pe_backed: isPeBacked,
         is_publicly_traded: buyer.is_publicly_traded ?? null,
+        transcript_summary: transcriptSummary,
       });
     }
 
@@ -578,6 +702,51 @@ Deno.serve(async (req: Request) => {
       // Among equal scores, PE-backed platforms rank first
       return (a.buyer_type_priority || 5) - (b.buyer_type_priority || 5);
     });
+
+    // ── "Why Not?" lookup: return a single buyer's full breakdown ──
+    if (lookupBuyerId) {
+      const rank = scored.findIndex((b) => b.buyer_id === lookupBuyerId);
+      const buyerScore = scored.find((b) => b.buyer_id === lookupBuyerId);
+      const wasRejected = rejectedBuyerIds.has(lookupBuyerId);
+      const wasNicheRejected = nicheRejectedBuyerIds.has(lookupBuyerId);
+      const wasFilteredAiSeed = buyers.some(
+        (b: { id: string; ai_seeded: boolean }) =>
+          b.id === lookupBuyerId && b.ai_seeded && !seedLogBuyerIds.has(lookupBuyerId),
+      );
+
+      let status: string;
+      if (wasRejected) {
+        status = 'Excluded — rejected on this deal';
+      } else if (wasFilteredAiSeed) {
+        status = 'Excluded — AI-seeded for a different deal';
+      } else if (buyerScore && rank >= 0) {
+        const cap = buyerScore.source === 'ai_seeded' ? MAX_EXTERNAL : MAX_INTERNAL;
+        const poolRank = scored
+          .filter((b) => (buyerScore.source === 'ai_seeded') === (b.source === 'ai_seeded'))
+          .findIndex((b) => b.buyer_id === lookupBuyerId);
+        if (poolRank >= cap) {
+          status = `Ranked #${poolRank + 1} in ${buyerScore.source === 'ai_seeded' ? 'external' : 'internal'} pool (below top-${cap} cap)`;
+        } else {
+          status = `Ranked #${poolRank + 1} in ${buyerScore.source === 'ai_seeded' ? 'external' : 'internal'} pool`;
+        }
+      } else {
+        status = 'Not found in buyer pool (may be archived or not in this universe)';
+      }
+
+      return new Response(
+        JSON.stringify({
+          lookup: true,
+          buyer_id: lookupBuyerId,
+          score: buyerScore || null,
+          rank: rank >= 0 ? rank + 1 : null,
+          total_scored: scored.length,
+          status,
+          was_rejected: wasRejected,
+          was_niche_rejected: wasNicheRejected,
+        }),
+        { headers: { ...headers, 'Content-Type': 'application/json' } },
+      );
+    }
 
     // Split into internal (pool) and external (AI-discovered) pools with independent caps.
     // This ensures AI-seeded buyers always surface in the External tab rather than
@@ -590,6 +759,10 @@ Deno.serve(async (req: Request) => {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + CACHE_HOURS * 60 * 60 * 1000);
 
+    // Note: content_hash is computed above but not written to the cache table yet.
+    // A future migration should add a content_hash TEXT column to buyer_recommendation_cache,
+    // then uncomment content_hash in the upsert and add it to the cache SELECT above
+    // for stale-on-edit invalidation.
     const { error: cacheError } = await supabase.from('buyer_recommendation_cache').upsert(
       {
         listing_id: listingId,
@@ -597,8 +770,9 @@ Deno.serve(async (req: Request) => {
         expires_at: expiresAt.toISOString(),
         buyer_count: topBuyers.length,
         results: topBuyers,
-        score_version: 'v3',
+        score_version: 'v4',
         universe_ids: universeIds,
+        // content_hash: contentHashStr, // Uncomment after migration adds this column
       },
       { onConflict: 'listing_id' },
     );

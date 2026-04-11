@@ -100,6 +100,46 @@ export const SECTOR_SYNONYMS: Record<string, string[]> = {
 };
 
 // ---------------------------------------------------------------------------
+// SECTOR_FAMILIES  --  groups related sectors under a parent category
+// ---------------------------------------------------------------------------
+// Used for "same-family" scoring (80 points) — services that share a parent
+// category are closer than adjacent (60) but not identical (100).
+// Example: "commercial HVAC" and "residential HVAC" are same-family (both HVAC);
+//          "plumbing" and "HVAC" are adjacent (both home services, different trades).
+
+export const SECTOR_FAMILIES: Record<string, string[]> = {
+  home_services: ['hvac', 'plumbing', 'roofing', 'electrical', 'restoration', 'home services', 'residential services', 'home repair'],
+  healthcare: ['dental', 'behavioral health', 'veterinary', 'home health', 'healthcare', 'health services', 'medical services', 'patient care'],
+  business_services: ['staffing', 'recruiting', 'consulting', 'accounting', 'professional services'],
+  facility_services: ['janitorial', 'commercial cleaning', 'pest control', 'landscaping', 'facility services', 'building services'],
+  infrastructure: ['utility', 'metering', 'field services', 'smart grid', 'infrastructure', 'utility services', 'municipal services'],
+  industrial: ['manufacturing', 'distribution', 'logistics'],
+  technology: ['it services', 'cybersecurity', 'software', 'telecom'],
+  construction: ['electrical', 'construction', 'fire protection', 'general contracting', 'specialty contracting'],
+  environmental: ['waste management', 'environmental services', 'remediation'],
+  insurance_benefits: ['insurance', 'employee benefits', 'benefits administration', 'benefits advisory', 'tpa', 'third party administrator'],
+  automotive: ['automotive', 'collision', 'auto body', 'auto repair'],
+};
+
+/** Reverse lookup: term -> family name */
+const _termToFamily = new Map<string, string>();
+for (const [family, terms] of Object.entries(SECTOR_FAMILIES)) {
+  for (const term of terms) {
+    // If a term appears in multiple families, keep the first one
+    if (!_termToFamily.has(term)) {
+      _termToFamily.set(term, family);
+    }
+  }
+}
+
+/** Check if two terms share the same sector family. */
+export function areSameFamily(termA: string, termB: string): boolean {
+  const familyA = _termToFamily.get(termA.toLowerCase());
+  const familyB = _termToFamily.get(termB.toLowerCase());
+  return !!familyA && familyA === familyB;
+}
+
+// ---------------------------------------------------------------------------
 // STATE_REGIONS  --  US state abbreviation -> broad census region
 // ---------------------------------------------------------------------------
 

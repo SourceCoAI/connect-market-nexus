@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -20,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { useNewRecommendedBuyers, type BuyerScore } from '@/hooks/admin/use-new-recommended-buyers';
+import { useNewRecommendedBuyers, type BuyerScore, type BuyerLookupResult } from '@/hooks/admin/use-new-recommended-buyers';
 import { useSeedBuyers, type SeedBuyerResult } from '@/hooks/admin/use-seed-buyers';
 import { useBuyerSearchJob } from '@/hooks/admin/use-buyer-search-job';
 import { BuyerSearchSummaryDialog } from '@/components/admin/deals/buyer-introductions/BuyerSearchSummaryDialog';
@@ -49,6 +50,9 @@ import {
   ArrowRight,
   Ban,
   Loader2,
+  Mic,
+  Filter,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -364,6 +368,16 @@ function BuyerCard({
           {buyer.fit_reason}
         </p>
       )}
+
+      {/* Transcript-extracted insights */}
+      {buyer.transcript_summary && (
+        <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-dashed">
+          <Mic className="h-3.5 w-3.5 text-indigo-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-indigo-700 italic leading-relaxed">
+            {buyer.transcript_summary}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -435,7 +449,7 @@ export function RecommendedBuyersTab({
   listingCategories,
   pipelineBuyerIds,
 }: RecommendedBuyersTabProps) {
-  const { data, isLoading, isError, error, refresh } = useNewRecommendedBuyers(listingId);
+  const { data, isLoading, isError, error, refresh, lookupBuyer } = useNewRecommendedBuyers(listingId);
   const seedMutation = useSeedBuyers();
   const { job, createJob, dismiss: dismissJob } = useBuyerSearchJob(listingId);
   const { createIntroduction } = useBuyerIntroductions(listingId);
@@ -461,6 +475,12 @@ export function RecommendedBuyersTab({
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryCached, setSummaryCached] = useState(false);
+  // Buyer mode toggle: 'platforms' shows only PE-backed, 'all' shows everything
+  const [buyerMode, setBuyerMode] = useState<'platforms' | 'all'>('platforms');
+  // "Why Not?" buyer lookup state
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupResult, setLookupResult] = useState<BuyerLookupResult | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
 
   const nicheCategory = listingIndustry || listingCategories?.[0] || 'general';
 
@@ -476,6 +496,32 @@ export function RecommendedBuyersTab({
     }
   };
 
+  const handleLookupBuyer = async () => {
+    if (!lookupQuery.trim()) return;
+    setLookupLoading(true);
+    setLookupResult(null);
+    try {
+      // Search for buyer by name in the database
+      const { data: matchingBuyers } = await untypedFrom('buyers')
+        .select('id, company_name')
+        .ilike('company_name', `%${lookupQuery.trim()}%`)
+        .eq('archived', false)
+        .limit(1);
+
+      if (!matchingBuyers || matchingBuyers.length === 0) {
+        toast.error(`No buyer found matching "${lookupQuery}"`);
+        return;
+      }
+
+      const result = await lookupBuyer(matchingBuyers[0].id);
+      setLookupResult(result);
+    } catch {
+      toast.error('Failed to look up buyer');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
   const handleSeedBuyers = async () => {
     setSeedResults(null);
     setSummaryError(null);
@@ -486,7 +532,13 @@ export function RecommendedBuyersTab({
 
       // forceRefresh: true ensures clicking this button always runs a fresh Claude search instead
       // of returning stale cached results from a previous run.
-      const result = await seedMutation.mutateAsync({ listingId, forceRefresh: true, jobId });
+      // When in "All Buyers" mode, pass 'all_types' to expand AI search beyond PE-backed platforms.
+      const result = await seedMutation.mutateAsync({
+        listingId,
+        forceRefresh: true,
+        jobId,
+        buyerCategory: buyerMode === 'all' ? 'all_types' : undefined,
+      });
       setSeedResults(result.seeded_buyers);
       setSummaryCached(!!result.cached);
       setSummaryDialogOpen(true);
@@ -673,8 +725,15 @@ export function RecommendedBuyersTab({
   const available = allBuyers.filter(
     (b) => !acceptedIds.has(b.buyer_id) && !dismissedIds.has(b.buyer_id),
   );
-  const allInternal = available.filter(isInternal);
+  // Apply platform/all filter: in "platforms" mode, only show PE-backed buyers in internal tab
+  const isPlatformBuyer = (b: BuyerScore) => b.is_pe_backed || b.buyer_type === 'private_equity';
+  const allInternalUnfiltered = available.filter(isInternal);
+  const allInternal = buyerMode === 'platforms'
+    ? allInternalUnfiltered.filter(isPlatformBuyer)
+    : allInternalUnfiltered;
   const allExternal = available.filter((b) => !isInternal(b));
+  const platformCount = allInternalUnfiltered.filter(isPlatformBuyer).length;
+  const allCount = allInternalUnfiltered.length;
   const internalBuyers = allInternal.slice(
     internalPage * PAGE_SIZE,
     (internalPage + 1) * PAGE_SIZE,
@@ -876,6 +935,103 @@ export function RecommendedBuyersTab({
           </p>
         </div>
       ) : (
+        <>
+        {/* Platform / All Buyers toggle */}
+        <div className="flex items-center gap-1 mb-3">
+          <Filter className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+          <Button
+            variant={buyerMode === 'platforms' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => { setBuyerMode('platforms'); setInternalPage(0); }}
+          >
+            Platforms ({platformCount})
+          </Button>
+          <Button
+            variant={buyerMode === 'all' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => { setBuyerMode('all'); setInternalPage(0); }}
+          >
+            All Buyers ({allCount})
+          </Button>
+        </div>
+
+        {/* "Why Not?" Buyer Lookup */}
+        <Collapsible className="mb-3">
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+              <Search className="h-3 w-3" />
+              Why isn't a buyer showing up?
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Search buyer by name..."
+                value={lookupQuery}
+                onChange={(e) => setLookupQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLookupBuyer()}
+                className="h-8 text-xs flex-1"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1"
+                onClick={handleLookupBuyer}
+                disabled={lookupLoading || !lookupQuery.trim()}
+              >
+                {lookupLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                Lookup
+              </Button>
+            </div>
+            {lookupResult && (
+              <div className="mt-2 border rounded-lg p-3 bg-muted/30 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">
+                    {lookupResult.score?.company_name || lookupResult.buyer_id}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0"
+                    onClick={() => setLookupResult(null)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <p className="text-muted-foreground font-medium">{lookupResult.status}</p>
+                {lookupResult.score && (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 border-t">
+                    <span>Service score:</span>
+                    <span className="font-medium">{lookupResult.score.service_score}/100</span>
+                    <span>Geography score:</span>
+                    <span className="font-medium">{lookupResult.score.geography_score}/100</span>
+                    <span>Composite:</span>
+                    <span className="font-bold">{lookupResult.score.composite_score}</span>
+                    <span>Tier:</span>
+                    <span className="font-medium">{lookupResult.score.tier}</span>
+                    {lookupResult.score.fit_signals.length > 0 && (
+                      <>
+                        <span className="col-span-2 pt-1 border-t text-muted-foreground">
+                          Signals: {lookupResult.score.fit_signals.join(' · ')}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+                {lookupResult.was_rejected && (
+                  <p className="text-red-600 font-medium">Rejected on this deal (hard excluded)</p>
+                )}
+                {lookupResult.was_niche_rejected && (
+                  <p className="text-amber-600 font-medium">Rejected on a similar deal (-15 penalty)</p>
+                )}
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
         <Tabs defaultValue="internal" className="w-full">
           <TabsList className="mb-3">
             <TabsTrigger value="internal" className="gap-1.5">
@@ -1003,6 +1159,7 @@ export function RecommendedBuyersTab({
             </p>
           )}
         </Tabs>
+        </>
       )}
 
       {/* Rejection Reason Dialog */}

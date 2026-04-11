@@ -27,6 +27,8 @@ export interface BuyerScore {
   source: 'ai_seeded' | 'marketplace' | 'scored';
   /** Buyer type priority for ranking (1=PE-backed platform, 2=PE/FO, 3=IS/SF, 4=Operating, 5=Other) */
   buyer_type_priority?: number;
+  /** Summary of transcript-extracted insights (when available) */
+  transcript_summary?: string;
 }
 
 export interface RecommendedBuyersResult {
@@ -43,6 +45,17 @@ function validateResult(data: unknown): RecommendedBuyersResult {
     throw new Error('Unexpected response shape from score-deal-buyers');
   }
   return d;
+}
+
+export interface BuyerLookupResult {
+  lookup: true;
+  buyer_id: string;
+  score: BuyerScore | null;
+  rank: number | null;
+  total_scored: number;
+  status: string;
+  was_rejected: boolean;
+  was_niche_rejected: boolean;
 }
 
 export function useNewRecommendedBuyers(listingId: string | null | undefined) {
@@ -72,5 +85,14 @@ export function useNewRecommendedBuyers(listingId: string | null | undefined) {
     return validated;
   }, [listingId, queryClient]);
 
-  return { ...query, refresh };
+  /** Look up a specific buyer's full scoring breakdown for this deal */
+  const lookupBuyer = useCallback(async (buyerId: string): Promise<BuyerLookupResult> => {
+    const data = await invokeEdgeFunction<BuyerLookupResult>('score-deal-buyers', {
+      body: { listingId, lookupBuyerId: buyerId },
+      maxRetries: 1,
+    });
+    return data;
+  }, [listingId]);
+
+  return { ...query, refresh, lookupBuyer };
 }
