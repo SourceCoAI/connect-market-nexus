@@ -83,11 +83,6 @@ export interface ContactRecord {
   nda_signed: boolean | null;
   fee_agreement_signed: boolean | null;
   created_at: string | null;
-  mobile_phone_1: string | null;
-  mobile_phone_2: string | null;
-  mobile_phone_3: string | null;
-  office_phone: string | null;
-  phone_source: string | null;
 }
 
 /** Agreement status (resolved from firm_agreements). */
